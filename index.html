@@ -3702,8 +3702,8 @@ function viewProducts() {
   const cmp = (a, b) => String(a).localeCompare(String(b), 'tr', {numeric: true, sensitivity: 'base'});
   const sk = {
     code: (a, b) => cmp(a.code, b.code), codeDesc: (a, b) => cmp(b.code, a.code),
-    cat: (a, b) => cmp(a.cat || ' ', b.cat || ' ') || cmp(a.code, b.code),
-    stock: (a, b) => { const sa = stockById(a.stockId), sb = stockById(b.stockId); return cmp(sa ? label(sa) : ' ', sb ? label(sb) : ' ') || cmp(a.code, b.code); },
+    cat: (a, b) => cmp(a.cat || '\uffff', b.cat || '\uffff') || cmp(a.code, b.code),
+    stock: (a, b) => { const sa = stockById(a.stockId), sb = stockById(b.stockId); return cmp(sa ? label(sa) : '\uffff', sb ? label(sb) : '\uffff') || cmp(a.code, b.code); },
     raw: (a, b) => (a.raw || 0) - (b.raw || 0), made: (a, b) => madeP(b) - madeP(a), used: (a, b) => usedBarsP(b) - usedBarsP(a)
   };
   L.sort(sk[pView.sort] || sk.code);
