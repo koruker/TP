@@ -4087,7 +4087,7 @@ function fileGate() {
 /* ====== Bulut (Firebase) modu ======
    Veri, ana şifreyle şifrelenmiş tek kayıt olarak Firebase Realtime Database'e yazılır (dosya modunun aynısı, yalnızca depolama bulutta).
    Giriş: Firebase hesabının şifresi = ana şifre. Bu bilgisayarda şifre bir kez sorulur, sonra yenileme anahtarıyla sessiz bağlanılır. */
-const FB_CONFIG = Object.assign({apiKey: '', databaseURL: '', email: '', path: 'uretim-takip', authBase: 'https://identitytoolkit.googleapis.com', tokenBase: 'https://securetoken.googleapis.com'},
+const FB_CONFIG = Object.assign({apiKey: 'AIzaSyCWXR0GfxikIo6KbBhhLbNRje0HQrvxdFk', databaseURL: 'https://tp-uretim-default-rtdb.europe-west1.firebasedatabase.app', email: 'uretim@tp.com', path: 'uretim-takip', authBase: 'https://identitytoolkit.googleapis.com', tokenBase: 'https://securetoken.googleapis.com'},
   window.__FB_TEST || {}, (() => { try { return JSON.parse(localStorage.getItem('urunTakip_fb') || 'null') || {}; } catch(e) { return {}; } })());
 const CLOUD_ON = () => !!(FB_CONFIG.apiKey && FB_CONFIG.databaseURL && FB_CONFIG.email) && !window.__skipCloud;
 let CLOUD_MODE = false;
