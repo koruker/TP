@@ -850,6 +850,12 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
     <div class="row"><button class="btn sec" id="histCsv">CSV indir</button><button class="btn" id="histClose">Kapat</button></div>
   </div>
 </div>
+<div id="alModal" class="modal hide" style="z-index:100000">
+  <div class="modalCard">
+    <p id="alMsg" style="white-space:pre-line;font-size:15px;margin:0 0 14px"></p>
+    <div class="row" style="margin-top:0"><button class="btn" id="alOk">Tamam</button></div>
+  </div>
+</div>
 <div id="ynModal" class="modal hide">
   <div class="modalCard">
     <p id="ynMsg" style="white-space:pre-line;font-size:15px;margin:0 0 14px"></p>
@@ -1703,6 +1709,23 @@ $('bkUnlink').onclick = async () => {
   updateStat(); renderBackupPage();
 };
 
+const _alQ = []; let _alOpen = false;
+function notify(msg) {   // tarayıcı uyarı penceresi yerine sayfa içi bildirim (engellense de görünür)
+  return new Promise(resolve => {
+    _alQ.push({msg: String(msg), resolve});
+    if (_alOpen) return;
+    const next = () => {
+      const it = _alQ.shift();
+      if (!it) { _alOpen = false; $('alModal').classList.add('hide'); document.removeEventListener('keydown', key, true); return; }
+      _alOpen = true; $('alMsg').textContent = it.msg; $('alModal').classList.remove('hide'); setTimeout(() => $('alOk').focus(), 30);
+      $('alOk').onclick = () => { it.resolve(); next(); };
+    };
+    const key = e => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); $('alOk').click(); } };
+    document.addEventListener('keydown', key, true);
+    next();
+  });
+}
+window.alert = m => { if (!$('alModal')) return; notify(m); };
 function askYes(msg) {   // tarayıcı onay penceresi yerine sayfa içi onay (Firefox "diyalogları engelle" seçilse de çalışır)
   if (window.__autoYes !== undefined) return Promise.resolve(!!window.__autoYes);
   return new Promise(resolve => {
@@ -3585,7 +3608,7 @@ $('setupBtn').onclick = async () => {
     if (SERVER) {
       try { await post('/api/users', {cid:CID, user:u, users:USERS, setup:true}); }
       catch(e) {
-        if (e.status===409) { alert('Kurulum başka bir bilgisayarda tamamlanmış. Sayfa yenilenecek.'); location.reload(); return; }
+        if (e.status===409) { notify('Kurulum başka bir bilgisayarda tamamlanmış. Sayfa yenilenecek.').then(() => location.reload()); return; }
         throw e;
       }
       await pullState();
@@ -4061,7 +4084,7 @@ async function mfLoadPayload(p) {
 function checkEpoch() {   // ana şifre başka bir bilgisayarda değiştiyse bu oturumu kapat
   if (!currentUser || !USERS) return;
   const sess = getSession();
-  if (sess && (sess.epoch || 0) !== (USERS.epoch || 0)) { clearSession(); alert('Ana şifre değiştirildi. Yeniden giriş yapmanız gerekiyor.'); location.reload(); }
+  if (sess && (sess.epoch || 0) !== (USERS.epoch || 0)) { clearSession(); notify('Ana şifre değiştirildi. Yeniden giriş yapmanız gerekiyor.').then(() => location.reload()); }
 }
 async function mfReconcile() {
   if (!mfIsOn()) return;
@@ -4929,7 +4952,7 @@ function handleEvents(evs) {
 }
 function onUsersChanged() {
   const me = USERS.users.find(u => u.id === currentUser.id);
-  if (!me) { alert('Kullanıcı hesabınız silindi. Çıkış yapılıyor.'); clearSession(); location.reload(); return; }
+  if (!me) { clearSession(); notify('Kullanıcı hesabınız silindi. Çıkış yapılıyor.').then(() => location.reload()); return; }
   currentUser = me;
   $('curUser').textContent = me.username + (me.role === 'admin' ? ' ⚡' : '');
   if (getSession() && getSession().isAdmin) renderUsers();
