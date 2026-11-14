@@ -3359,7 +3359,6 @@ $('mpBtn').onclick = async () => {
   const ok = await verifyPass(oldPw, USERS.masterVerif);
   if (!ok) { $('mpMsg').innerHTML = '<span class="warnTxt">Eski şifre yanlış.</span>'; return; }
   try {
-    if (MF.h === cloudHandle) { try { await cloudChangePassword(nw); } catch(e) { $('mpMsg').innerHTML = '<span class="warnTxt">Bulut şifresi değiştirilemedi: ' + esc(e.message) + '</span>'; return; } }
     USERS.masterVerif = await hashPass(nw);
     USERS.epoch = (USERS.epoch || 0) + 1;   // tüm oturumlar geçersiz
     persistUsers();
@@ -3478,7 +3477,6 @@ $('setupBtn').onclick = async () => {
   if (!u || u.length<2) { $('setupErr').textContent = 'En az 2 karakter.'; return; }
   if (!m || m.length<4) { $('setupErr').textContent = 'Ana şifre en az 4 karakter.'; return; }
   if (m !== m2) { $('setupErr').textContent = 'Şifreler eşleşmiyor.'; return; }
-  if (NEWFILE && CLOUD_MODE && m !== CLOUD.pw) { $('setupErr').textContent = 'Ana şifre, Firebase hesabının şifresiyle aynı olmalı.'; return; }
   if (NEWFILE && !SETUP_DL && !CLOUD_MODE) {
     if (!NEWFILE_H) try { NEWFILE_H = window.__mfNewHandle ? await window.__mfNewHandle() : await showSaveFilePicker({suggestedName: 'uretim-takip-veri.json', types: [mfPickJson]}); }
     catch(e) { $('setupErr').textContent = 'Tarayıcı dosya kaydetme penceresinden sonuç döndürmedi (' + (e && e.name) + ': ' + (e && e.message) + '). Klasör ağ sürücüsünde veya korumalı olabilir. Aşağıdaki düğmeyle veri dosyasını indirip sayfanın yanına koyarak devam edebilirsiniz.'; $('setupDl').classList.remove('hide'); return; }
@@ -4210,9 +4208,8 @@ function cloudTake(j) {
   CLOUD.tok = j.idToken || j.id_token; CLOUD.refresh = j.refreshToken || j.refresh_token;
   CLOUD.exp = Date.now() + (+(j.expiresIn || j.expires_in) || 3600) * 1000;
 }
-async function cloudSignIn(pw) {
-  cloudTake(await fbPost(FB_CONFIG.authBase + '/v1/accounts:signInWithPassword?key=' + encodeURIComponent(FB_CONFIG.apiKey), {email: FB_CONFIG.email, password: pw, returnSecureToken: true}));
-  CLOUD.pw = pw;
+async function cloudAnon() {   // şifresiz (anonim) bağlantı: giriş yalnızca uygulamanın kendi kullanıcı adı/parolasıyla
+  cloudTake(await fbPost(FB_CONFIG.authBase + '/v1/accounts:signUp?key=' + encodeURIComponent(FB_CONFIG.apiKey), {returnSecureToken: true}));
   try { await idbDo('meta', 'readwrite', s => s.put(CLOUD.refresh, 'fbr')); } catch(e) {}
 }
 async function cloudRefresh(rt) {
@@ -4223,13 +4220,8 @@ async function cloudToken() {
   if (CLOUD.tok && Date.now() < CLOUD.exp - 60000) return CLOUD.tok;
   if (!CLOUD.refresh) throw new Error('Bulut oturumu yok');
   try { await cloudRefresh(CLOUD.refresh); }
-  catch(e) { if (e.fb && /TOKEN_EXPIRED|INVALID_REFRESH_TOKEN|USER_DISABLED|CREDENTIAL_TOO_OLD|USER_NOT_FOUND/.test(e.message) && currentUser) { clearSession(); alert('Ana şifre değiştirildi. Yeniden giriş yapmanız gerekiyor.'); location.reload(); } throw e; }
+  catch(e) { if (e.fb) await cloudAnon(); else throw e; }
   return CLOUD.tok;
-}
-async function cloudChangePassword(nw) {
-  const j = await fbPost(FB_CONFIG.authBase + '/v1/accounts:update?key=' + encodeURIComponent(FB_CONFIG.apiKey), {idToken: await cloudToken(), password: nw, returnSecureToken: true});
-  cloudTake(j); CLOUD.pw = nw;
-  try { await idbDo('meta', 'readwrite', s => s.put(CLOUD.refresh, 'fbr')); } catch(e) {}
 }
 /* ---- Bulut veri yapısı (ay ay, düz metin) ----
    uretim-takip/
@@ -4425,10 +4417,11 @@ function cloudGate() {
     $('fgLocal').classList.toggle('hide', !localStorage.getItem(USERS_KEY));
     const attempt = async pw => {
       try {
-        if (pw) await cloudSignIn(pw);
-        else { const rt = await idbDo('meta', 'readonly', s => s.get('fbr')); if (!rt) return 'badpw'; await cloudRefresh(rt); }
+        const rt = await idbDo('meta', 'readonly', s => s.get('fbr')).catch(() => null);
+        if (rt) { try { await cloudRefresh(rt); } catch(e) { if (e.fb) await cloudAnon(); else throw e; } }
+        else await cloudAnon();
       } catch(e) {
-        if (e.fb) { if (!pw) return 'badpw'; msg(/INVALID|PASSWORD|EMAIL_NOT_FOUND|CREDENTIALS/.test(e.message) ? 'Şifre yanlış.' : 'Firebase hatası: ' + e.message); return 'badpw'; }
+        if (e.fb) { msg('Firebase hatası: ' + e.message + (/OPERATION_NOT_ALLOWED|ADMIN_ONLY/.test(e.message) ? ' — Firebase konsolunda Authentication → Sign-in method → Anonymous seçeneğini etkinleştirin.' : '')); return 'net'; }
         msg('İnternet bağlantısı kurulamadı.'); return 'net';
       }
       try {
@@ -4436,21 +4429,18 @@ function cloudGate() {
         const hasLocal = !!(localStorage.getItem(USERS_KEY) && localStorage.getItem(DATA_KEY)), dirty = lsNum(DIRTY_KEY) === 1 && hasLocal;
         if (!meta) {
           const sh = await fbGet('', 'shallow=true');
-          if (!sh) { if (!CLOUD.pw) return 'badpw'; return 'new'; }
+          if (!sh) return 'new';
           if (sh.iv) {   // eski sürümün şifreli tek kaydı: aç ve yeni düzene taşı
-            if (!CLOUD.pw) return 'badpw';
             const j = await fbGet('');
-            let raw, pw2 = CLOUD.pw;
-            try { raw = b64d((await decryptBlob(j.wrap, pw2)).k); }
-            catch(e) {   // Firebase hesabı yeniden oluşturulmuş olabilir: eski veri eski ana şifreyle şifrelidir
-              pw2 = await askPassword('Eski ana şifre', 'Buluttaki eski veri, daha önce belirlediğiniz ana şifreyle şifrelenmiş. O şifreyi girin; yeni düzene taşınacak ve Firebase şifresi de buna eşitlenecek.', true);
+            let raw, pw2 = null;
+            {   // Firebase hesabı yeniden oluşturulmuş olabilir: eski veri eski ana şifreyle şifrelidir
+              pw2 = await askPassword('Eski ana şifre', 'Buluttaki eski veri, daha önce belirlediğiniz ana şifreyle şifrelenmiş. O şifreyi girin; veri yeni düzene taşınacak.', true);
               if (!pw2) { msg('Eski ana şifre gerekli.'); return 'net'; }
               try { raw = b64d((await decryptBlob(j.wrap, pw2)).k); } catch(e2) { msg('Bu şifreyle eski bulut verisi açılamadı.'); return 'net'; }
             }
             MF.ck = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
             const payload = await mfUnpack(j); MF.ck = null;
             if (!mfApplyBoot(payload)) { msg('Bulut verisinde kullanıcı bilgisi yok.'); return 'net'; }
-            if (pw2 !== CLOUD.pw) { try { await cloudChangePassword(pw2); } catch(e) {} }
             lsPut(DIRTY_KEY, 1); CS.last = new Map(); CS.stamps = {genel: 0, aylar: {}}; CS.legacy = true;
             MF.h = cloudHandle; MF.state = 'ok'; return 'loaded';
           }
