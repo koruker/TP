@@ -826,6 +826,30 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
 
 <div id="scopeModal" class="modal hide"><div class="modalCard"><h3 id="scopeTitle"></h3><p id="scopeDesc"></p><div class="row" style="margin-top:0;flex-direction:column;align-items:stretch;gap:8px"><button class="btn" id="scopeAll">⏪ Geçmişten bu yana (tüm stok ve kayıtlar yeni değerle hesaplansın)</button><button class="btn sec" id="scopeNow">⏩ Bu andan itibaren (mevcut stoklar eski değerde kalsın)</button><button class="btn sec" id="scopeCancel">Vazgeç</button></div></div></div>
 
+<div id="arrModal" class="modal hide">
+  <div class="modalCard">
+    <h3 id="arrTitle">Stok geliş</h3>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px">
+      <div><label id="arrQL">Gelen çubuk adedi</label><input id="arrQty" inputmode="decimal" placeholder="0"></div>
+      <div id="arrKgBox"><label>veya gelen kg</label><input id="arrKg" inputmode="decimal" placeholder="0"></div>
+      <div><label>Geliş tarihi</label><input id="arrDate" type="date"></div>
+      <div><label>Not (irsaliye, tedarikçi…)</label><input id="arrNote" placeholder="isteğe bağlı"></div>
+    </div>
+    <p id="arrErr" class="warnTxt" style="min-height:18px"></p>
+    <div class="row" style="margin-top:0"><button class="btn" id="arrOk">Kaydet</button><button class="btn sec" id="arrCancel">Vazgeç</button></div>
+  </div>
+</div>
+<div id="histModal" class="modal hide">
+  <div class="modalCard" style="max-width:980px;width:96vw;max-height:90vh;overflow:auto">
+    <h3 id="histTitle">Stok hareketleri</h3>
+    <div id="histSum" style="margin:6px 0 10px"></div>
+    <h4 style="margin:10px 0 4px">📥 Gelişler</h4>
+    <div class="tw"><table><thead><tr><th>Tarih</th><th class="num">Miktar</th><th class="num">kg</th><th>Kaydeden</th><th>Not</th></tr></thead><tbody id="histArr"></tbody></table></div>
+    <h4 style="margin:14px 0 4px">🏭 Kullanım (üretim kayıtları)</h4>
+    <div class="tw"><table><thead><tr><th>Tarih</th><th>Vardiya</th><th>Ekip</th><th>Operatör</th><th>Makine</th><th>Parça</th><th class="num">Üretilen adet</th><th class="num">Harcanan</th><th class="num">Harcanan kg</th></tr></thead><tbody id="histUse"></tbody></table></div>
+    <div class="row"><button class="btn sec" id="histCsv">CSV indir</button><button class="btn" id="histClose">Kapat</button></div>
+  </div>
+</div>
 <div id="ynModal" class="modal hide">
   <div class="modalCard">
     <p id="ynMsg" style="white-space:pre-line;font-size:15px;margin:0 0 14px"></p>
@@ -1796,8 +1820,8 @@ $('fSave').onclick = () => {
     if (qty < 0) { alert('Adet negatif olamaz.'); return; }
     const warn = $('fWarn').value.trim()==='' ? null : num($('fWarn').value);
     const rec = {d:0, l:0, w:0, wManual:false, qty, date:$('fDate').value||today(), warn, matId:$('fMat').value};
-    if (editId) { Object.assign(stockById(editId), rec); logAction('stok_düzenle', label(rec) + ' — ' + fmt(qty) + ' adet'); }
-    else { S.stocks.push(Object.assign({id:uid()}, rec)); logAction('stok_ekle', label(rec) + ' — ' + fmt(qty) + ' adet'); }
+    if (editId) { const st0 = stockById(editId), old = st0.qty; Object.assign(st0, rec); stArrLog(st0, qty - old, 'Stok düzenlenerek değiştirildi', true); logAction('stok_düzenle', label(rec) + ' — ' + fmt(qty) + ' adet'); }
+    else { const ns = Object.assign({id:uid()}, rec); S.stocks.push(ns); stArrLog(ns, qty, 'İlk kayıt', false); logAction('stok_ekle', label(rec) + ' — ' + fmt(qty) + ' adet'); }
     save(); resetForm(); renderAll(); return;
   }
   const d = num($('fD').value), l = num($('fL').value);
@@ -1814,32 +1838,89 @@ $('fSave').onclick = () => {
   const warn = $('fWarn').value.trim()==='' ? null : num($('fWarn').value);
   const rec = {d, l, w:wManual?w:0, wManual, qty, date:$('fDate').value||today(), warn, matId};
   if (editId) {
-    Object.assign(stockById(editId), rec);
+    const st0 = stockById(editId), old = st0.qty;
+    Object.assign(st0, rec); stArrLog(st0, qty - old, 'Stok düzenlenerek değiştirildi', true);
     logAction('stok_düzenle', label(rec) + ' — ' + fmt(qty) + ' çubuk');
   } else {
-    S.stocks.push(Object.assign({id:uid()}, rec));
+    const ns = Object.assign({id:uid()}, rec); S.stocks.push(ns); stArrLog(ns, qty, 'İlk kayıt', false);
     logAction('stok_ekle', label(rec) + ' — ' + fmt(qty) + ' çubuk');
   }
   save(); resetForm(); renderAll();
 };
+function stArrLog(s, qty, note, adj, date, kg) {   // stok geliş geçmişine kayıt
+  if (!qty) return;
+  if (!Array.isArray(s.arr)) s.arr = [];
+  const r = {id: uid(), ts: Date.now(), date: date || s.date || today(), qty: Math.round(qty * 1e6) / 1e6, user: currentUser ? currentUser.username : '', note: note || ''};
+  if (adj) r.adj = true; if (kg) r.kg = kg;
+  s.arr.push(r);
+}
+function openArrival(s) {
+  const cnt = isCountS(s), w = cnt ? 0 : bw(s);
+  $('arrTitle').textContent = label(s) + ' — geliş ekle';
+  $('arrQL').textContent = cnt ? 'Gelen adet' : 'Gelen çubuk adedi';
+  $('arrKgBox').classList.toggle('hide', cnt);
+  $('arrQty').value = ''; $('arrKg').value = ''; $('arrDate').value = today(); $('arrNote').value = ''; $('arrErr').textContent = '';
+  $('arrModal').classList.remove('hide'); setTimeout(() => $('arrQty').focus(), 30);
+  const close = () => $('arrModal').classList.add('hide');
+  $('arrKg').oninput = () => { const k = num($('arrKg').value); if (k > 0 && w > 0) $('arrQty').value = rnd(k / w, 2); };
+  $('arrQty').oninput = () => { $('arrKg').value = ''; };
+  const ok = () => {
+    let n = num($('arrQty').value), kg = num($('arrKg').value);
+    if (!(n > 0)) { $('arrErr').textContent = cnt ? 'Gelen adedi girin.' : 'Çubuk adedi veya kg girin.'; return; }
+    const d = $('arrDate').value || today();
+    s.qty += n; if (!s.date || d >= s.date) s.date = d;
+    stArrLog(s, n, $('arrNote').value.trim(), false, d, (!cnt && w > 0) ? Math.round(n * w * 1000) / 1000 : 0);
+    logAction('stok_geliş', label(s) + ' +' + fmt(n) + (cnt ? ' adet' : ' çubuk') + ' (' + trDate(d) + ')' + ($('arrNote').value.trim() ? ' — ' + $('arrNote').value.trim() : ''));
+    close(); save(); renderAll();
+  };
+  $('arrOk').onclick = ok; $('arrCancel').onclick = close;
+  $('arrModal').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } else if (e.key === 'Escape') close(); };
+}
+let histRows = [];
+function openStockHist(s) {
+  const cnt = isCountS(s), w = cnt ? 0 : bw(s), unit = cnt ? 'adet' : 'çubuk';
+  const arr = (Array.isArray(s.arr) ? s.arr.slice() : []).sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.ts - a.ts);
+  const known = arr.reduce((t, r) => t + (r.qty || 0), 0), prior = Math.round((s.qty - known) * 1e6) / 1e6;
+  const rowsA = arr.map(r => ({d: r.date, q: r.qty, kg: r.kg || (!cnt && w > 0 ? r.qty * w : 0), u: r.user, n: (r.adj ? '✎ ' : '') + (r.note || '')}));
+  if (Math.abs(prior) > 1e-9) rowsA.push({d: '', q: prior, kg: !cnt && w > 0 ? prior * w : 0, u: '', n: 'Önceki toplam (geliş kaydı tutulmamış)'});
+  const use = [];
+  S.entries.forEach(e => {
+    if (!e.code || !e.qty) return; const p = prodByCode(e.code); if (!p || p.stockId !== s.id) return;
+    const pp = partsPer(s, p), q = e.qty || 0, h = cnt ? q : (pp > 0 ? q / pp : 0);
+    use.push({d: e.date || '', sh: e.shift || '', tm: e.team || '', op: e.op || '', mc: e.machine || '', code: p.code, q, h, kg: cnt ? 0 : h * w});
+  });
+  use.sort((a, b) => b.d.localeCompare(a.d));
+  const tot = use.reduce((t, r) => t + r.h, 0), totKg = use.reduce((t, r) => t + r.kg, 0);
+  $('histTitle').textContent = '📜 ' + label(s) + ' — hareketler';
+  $('histSum').innerHTML = `Toplam gelen: <b>${fmt(s.qty)}</b> ${unit} · Kullanılan: <b>${fmt(tot)}</b> ${unit}${cnt ? '' : ' (' + fmt(totKg) + ' kg)'} · Kalan: <b>${fmt(s.qty - tot)}</b> ${unit}${cnt ? '' : ' (' + fmt((s.qty - tot) * w) + ' kg)'}`;
+  $('histArr').innerHTML = rowsA.length ? rowsA.map(r => `<tr><td>${r.d ? trDate(r.d) : '—'}</td><td class="num">${(r.q > 0 ? '+' : '') + fmt(r.q)} ${unit}</td><td class="num">${r.kg ? fmt(r.kg) : '—'}</td><td>${esc(r.u || '—')}</td><td>${esc(r.n)}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">Geliş kaydı yok.</td></tr>';
+  $('histUse').innerHTML = use.length ? use.map(r => `<tr><td>${r.d ? trDate(r.d) : '—'}</td><td>${esc(r.sh || '—')}</td><td>${esc(r.tm || '—')}</td><td>${esc(r.op || '—')}</td><td>${esc(r.mc || '—')}</td><td><b>${esc(r.code)}</b></td><td class="num">${fmt(r.q)}</td><td class="num">${fmt(r.h, 2)} ${unit}</td><td class="num">${cnt ? '—' : fmt(r.kg, 2)}</td></tr>`).join('') : '<tr><td colspan="9" class="empty">Bu stoktan üretim kaydı yok.</td></tr>';
+  histRows = [['Tür', 'Tarih', 'Vardiya', 'Ekip', 'Operatör', 'Makine', 'Parça', 'Üretilen adet', 'Miktar (' + unit + ')', 'kg', 'Kaydeden/Not']]
+    .concat(rowsA.map(r => ['Geliş', r.d, '', '', '', '', '', '', r.q, r.kg ? rnd(r.kg, 3) : '', (r.u ? r.u + ' ' : '') + r.n]))
+    .concat(use.map(r => ['Kullanım', r.d, r.sh, r.tm, r.op, r.mc, r.code, r.q, rnd(r.h, 3), r.kg ? rnd(r.kg, 3) : '', '']));
+  $('histCsv').onclick = () => { const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; downloadText('stok-hareket-' + label(s).replace(/[^\w\-ğüşıöçĞÜŞİÖÇ]+/g, '_') + '-' + today() + '.csv', '\uFEFF' + histRows.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8'); };
+  $('histClose').onclick = () => $('histModal').classList.add('hide');
+  $('histModal').classList.remove('hide');
+}
 function renderStocks() {
   const b = $('stockBody');
   if (!S.stocks.length) { b.innerHTML = '<tr><td colspan="10" class="empty">Henüz stok eklenmedi.</td></tr>'; return; }
   b.innerHTML = S.stocks.map(s=>{
     const r = remS(s), u = used(s), w = bw(s), m = matById(s.matId);
     if (isCountS(s)) return `<tr class="${isLow(s)?'low':''}"${editId===s.id?' style="outline:2px solid var(--pri);outline-offset:-2px"':''}>
-      <td><b>${esc(m.name)}</b> <span class="badge" style="background:#6b7280">adet</span>${isLow(s)?'<span class="badge">AZ</span>':''}</td>
+      <td><b class="stLink" data-act="hist" data-id="${s.id}" style="cursor:pointer;text-decoration:underline dotted">${esc(m.name)}</b> <span class="badge" style="background:#6b7280">adet</span>${isLow(s)?'<span class="badge">AZ</span>':''}</td>
       <td>adet takibi</td><td class="num">—</td><td>${trDate(s.date)}</td>
       <td class="num">${s.qty>0?fmt(s.qty):'—'}</td><td class="num">${fmt(u)}</td>
       <td class="num remc">${s.qty>0?fmt(r):'—'}</td><td class="num remc">—</td>
       <td class="num">${s.warn!=null?fmt(s.warn)+'*':'—'}</td>
       <td>
         <button class="btn sm" data-act="arr" data-id="${s.id}">+ Geliş</button>
+        <button class="btn sm sec" data-act="hist" data-id="${s.id}" title="Gelişler ve kullanım dökümü">📜 Hareket</button>
         <button class="btn sm sec" data-act="edit" data-id="${s.id}">Düzenle</button>
         <button class="btn sm del" data-act="del" data-id="${s.id}">Sil</button>
       </td></tr>`;
     return `<tr class="${isLow(s)?'low':''}"${editId===s.id?' style="outline:2px solid var(--pri);outline-offset:-2px"':''}>
-      <td><b>Ø${fmt(s.d)} × ${fmt(s.l)} mm</b>${isLow(s)?'<span class="badge">AZ</span>':''}</td>
+      <td><b class="stLink" data-act="hist" data-id="${s.id}" style="cursor:pointer;text-decoration:underline dotted">Ø${fmt(s.d)} × ${fmt(s.l)} mm</b>${isLow(s)?'<span class="badge">AZ</span>':''}</td>
       <td>${m?esc(m.name):'<span style="color:var(--mut)">genel</span>'}</td>
       <td class="num">${fmt(w,3)}</td>
       <td>${trDate(s.date)}</td>
@@ -1850,23 +1931,18 @@ function renderStocks() {
       <td class="num">${fmt(limitS(s))}${s.warn!=null?'*':''}</td>
       <td>
         <button class="btn sm" data-act="arr" data-id="${s.id}">+ Geliş</button>
+        <button class="btn sm sec" data-act="hist" data-id="${s.id}" title="Gelişler ve kullanım dökümü">📜 Hareket</button>
         <button class="btn sm sec" data-act="edit" data-id="${s.id}">Düzenle</button>
         <button class="btn sm del" data-act="del" data-id="${s.id}">Sil</button>
       </td></tr>`;
   }).join('');
 }
 $('stockBody').onclick = async e => {
-  const b = e.target.closest('button'); if (!b) return;
+  const b = e.target.closest('button, .stLink'); if (!b) return;
   const s = stockById(b.dataset.id); if (!s) return;
-  if (b.dataset.act==='arr') {
-    const cnt = isCountS(s);
-    const n = num(prompt(label(s)+' için gelen '+(cnt?'adet:':'çubuk adedi:')));
-    if (n>0) {
-      s.qty += n; s.date = today();
-      logAction('stok_geliş', label(s) + ' +' + fmt(n) + (cnt?' adet':' çubuk'));
-      save(); renderAll();
-    }
-  } else if (b.dataset.act==='edit') {
+  if (b.dataset.act==='hist') { openStockHist(s); }
+  else if (b.dataset.act==='arr') { openArrival(s); }
+  else if (b.dataset.act==='edit') {
     editId = s.id; manualW = !!(s.wManual&&s.w>0); last='qty';
     fillMatSelect();
     $('fMat').value = s.matId && matById(s.matId) ? s.matId : '';
