@@ -287,6 +287,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
 .hcat[data-c="Hareket"]{background:#111827;color:#fff}
 #hrBody td:last-child{white-space:normal;min-width:320px}
 #hrBody td{vertical-align:top}
+#bkBanner{background:#fff3cd;color:#664d03;border-bottom:1px solid #e0c36a;padding:8px 14px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}#bkBanner button{padding:4px 10px;border-radius:6px;border:1px solid #b08900;background:#ffe08a;cursor:pointer}#bkBanner button.ghost{background:transparent}
 </style>
 </head>
 <body>
@@ -328,7 +329,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
   <div class="card">
     <h2>Kullanıcı Seç</h2>
     <div id="loginUserList" class="loginUsers"></div>
-    <div class="hint">Normal kullanıcılar şifre girmeden giriş yapar. Yöneticiler ana şifreyle giriş yapar.</div>
+    <div class="hint">Şifresi olan kullanıcılar (🔒) kendi şifresiyle, yöneticiler ana şifreyle girer; diğerleri şifresiz girer.</div>
   </div>
 </div>
 
@@ -343,6 +344,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
     <button id="logoutBtn" title="Çıkış">⏻</button>
   </div>
 </div>
+<div id="bkBanner" class="hide"></div>
 <div id="alarms"></div>
 <div id="codeMenu"></div>
 
@@ -573,8 +575,8 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
         <div class="grid">
           <div><label>Ürün kodu</label><input id="pCode" placeholder="ör. 12345-A"></div>
           <div><label>Kategori</label><input id="pCat" list="catList" placeholder="ör. Cıvata" autocomplete="off"><datalist id="catList"></datalist></div>
-          <div><label>Ham malzeme (stok)</label><select id="pStock"></select></div>
-          <div><label>Ham boy (mm)</label><input id="pRaw" inputmode="decimal" placeholder="ör. 53"></div>
+          <div><label>Ham malzeme (stok) — isteğe bağlı</label><select id="pStock"></select></div>
+          <div><label>Ham boy (mm) — çubuk için</label><input id="pRaw" inputmode="decimal" placeholder="ör. 53"></div>
           <div><label>Kullanılabilir boy (mm)</label><input id="pMax" inputmode="decimal" placeholder="ör. 2700"></div>
           <div><label>Kesim/işleme payı (mm)</label><input id="pKerf" inputmode="decimal" placeholder="ör. 3"></div>
           <div><label>Proses süresi (sn/adet)</label><input id="pProcSec" inputmode="decimal" placeholder="ör. 28.8"></div>
@@ -623,7 +625,8 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
         <h2>Yeni malzeme türü</h2>
         <div class="grid">
           <div><label>Malzeme adı</label><input id="mName" placeholder="ör. Sarı MS58"></div>
-          <div><label>Yoğunluk (g/cm³)</label><input id="mDens" inputmode="decimal" placeholder="ör. 8.5"></div>
+          <div id="mCountBox" style="align-self:end"><label class="chk"><input type="checkbox" id="mCount"> Çubuk değil — yalnızca adet takibi</label></div>
+          <div id="mDensBox"><label>Yoğunluk (g/cm³)</label><input id="mDens" inputmode="decimal" placeholder="ör. 8.5"></div>
           <div><label>Açıklama / kimyasal notlar</label><input id="mNote" placeholder="CuZn39Pb3 · Pb %2-3"></div>
           <div><button class="btn" id="mAdd" style="width:100%">Malzeme ekle</button></div>
         </div>
@@ -680,13 +683,15 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
         <div class="grid">
           <div><label>Kullanıcı adı</label><input id="uName" autocomplete="off"></div>
           <div><label>Rol</label><select id="uRole"><option value="user">Normal kullanıcı</option><option value="admin">Yönetici</option></select></div>
+          <div><label>Şifre</label><select id="uPwMode"><option value="none">Şifresiz</option><option value="pw">Şifreli</option></select></div>
+          <div id="uPwBox" class="hide"><label>Kullanıcı şifresi</label><input id="uPw" type="password" autocomplete="new-password" placeholder="en az 4 karakter"></div>
           <div><button class="btn" id="uAdd" style="width:100%">Kullanıcı ekle</button></div>
         </div>
       </div>
       <div class="card">
         <h2>Kullanıcılar</h2>
         <div class="tw"><table>
-          <thead><tr><th>Kullanıcı</th><th>Rol</th><th>Oluşturma</th><th></th></tr></thead>
+          <thead><tr><th>Kullanıcı</th><th>Rol</th><th>Şifre</th><th>Oluşturma</th><th></th></tr></thead>
           <tbody id="usersBody"></tbody>
         </table></div>
       </div>
@@ -1247,9 +1252,11 @@ function saveAudit(arr) {
 function logAction(action, details) {
   if (!currentUser) return;
   const audit = loadAudit();
-  audit.unshift({ts:Date.now(), user:currentUser.username, role:currentUser.role, action, details:details||''});
+  const rec = {k:uid(), ts:Date.now(), user:currentUser.username, role:currentUser.role, action, details:details||''};
+  audit.unshift(rec);
   if (audit.length > 5000) audit.length = 5000;
   saveAudit(audit);
+  cloudAuditPush(rec);
   if ($('subtab-audit') && !$('subtab-audit').classList.contains('hide')) renderAudit();
 }
 
@@ -1264,6 +1271,7 @@ function getSession() {
 }
 function setSession(sess) {
   clearSession();
+  sess.epoch = USERS ? (USERS.epoch || 0) : 0;
   const storage = sess.isAdmin ? sessionStorage : localStorage;
   try { storage.setItem(SESSION_KEY, JSON.stringify(sess)); } catch(e) {}
 }
@@ -1297,6 +1305,8 @@ const calcW = (d,l,dens) => { const de = (dens!=null&&dens>0)?dens:S.settings.de
 const stockDens = s => { const m = matById(s.matId); return m&&m.dens>0?m.dens:S.settings.dens; };
 const bw = s => (s.wManual&&s.w>0) ? s.w : calcW(s.d, s.l, stockDens(s));
 const stockById = id => S.stocks.find(s=>s.id===id);
+const isCountM = m => !!(m && m.countOnly);
+const isCountS = s => !!(s && isCountM(matById(s.matId)));
 const _nc = new Map();
 const normC = c => { if (!c) return ''; let r = _nc.get(c); if (r === undefined) { r = String(c).trim().toLowerCase(); if (_nc.size > 20000) _nc.clear(); _nc.set(c, r); } return r; };
 /* --- hızlı arama/özet önbellekleri (çok kayıtta donmayı önler; her çağrıda geçerliliği denetlenir) --- */
@@ -1320,22 +1330,25 @@ function aggKey() {
   }
   let ps = '';
   S.products.forEach(p => { ps += p.id + '|' + p.code + '|' + p.stockId + '|' + p.raw + '|' + p.maxLen + '|' + p.kerf + ';'; });
-  S.stocks.forEach(s => { ps += s.id + '|' + s.l + ';'; });
+  S.stocks.forEach(s => { ps += s.id + '|' + s.l + '|' + s.matId + ';'; });
+  S.materials.forEach(m => { ps += m.id + (m.countOnly ? 'c' : 'b') + ';'; });
   return h + '#' + ps + S.settings.kerf;
 }
 function agg() {
   const key = aggKey();
   if (_agg && key === _aggKey) return _agg;
-  const made = new Map(), usedP = new Map(), bars = new Map(), ppM = new Map();
+  const made = new Map(), usedP = new Map(), bars = new Map(), ppM = new Map(), pcs = new Map();
   S.entries.forEach(e => {
     const p = prodByCode(e.code); if (!p) return;
-    let pp = ppM.get(p); if (pp === undefined) { pp = partsPer(stockById(p.stockId), p); ppM.set(p, pp); }
+    const st = stockById(p.stockId);
+    let pp = ppM.get(p); if (pp === undefined) { pp = partsPer(st, p); ppM.set(p, pp); }
     const q = e.qty || 0, b = pp > 0 ? q / pp : 0;
     made.set(p, (made.get(p) || 0) + q);
     usedP.set(p, (usedP.get(p) || 0) + b);
     bars.set(p.stockId, (bars.get(p.stockId) || 0) + b);
+    if (st && isCountS(st)) pcs.set(p.stockId, (pcs.get(p.stockId) || 0) + q);
   });
-  _agg = {made, usedP, bars}; _aggKey = key; return _agg;
+  _agg = {made, usedP, bars, pcs}; _aggKey = key; return _agg;
 }
 const uniqueContains = c => { const q = normC(c); if(!q) return null; const m = S.products.filter(p=>normC(p.code).includes(q)); return m.length===1?m[0]:null; };
 let _eix = null, _eixArr = null, _eixLen = -1;
@@ -1351,7 +1364,7 @@ function entById(id) {
 const prodUsable = (s,p) => { if(!s||!p) return 0; return (p.maxLen!=null&&p.maxLen>0)?Math.min(p.maxLen, s.l):s.l; };
 const prodKerf = p => (p&&p.kerf!=null) ? p.kerf : (S.settings.kerf||0);
 const partsPer = (s,p) => {
-  if (!s || !p || p.raw<=0) return 0;
+  if (!s || !p || p.raw<=0 || isCountS(s)) return 0;
   const usable = prodUsable(s,p), k = prodKerf(p), per = p.raw+k;
   if (per<=0) return 0;
   const custom = (p.maxLen!=null || p.kerf!=null);
@@ -1360,11 +1373,11 @@ const partsPer = (s,p) => {
 const entryBars = e => { const p = prodByCode(e.code); if(!p) return 0; const pp = partsPer(stockById(p.stockId), p); return pp>0?(e.qty||0)/pp:0; };
 const madeP = p => agg().made.get(p) || 0;
 const usedBarsP = p => agg().usedP.get(p) || 0;
-const used = s => agg().bars.get(s.id) || 0;
+const used = s => isCountS(s) ? (agg().pcs.get(s.id) || 0) : (agg().bars.get(s.id) || 0);
 const remS = s => s.qty - used(s);
 const limitS = s => (s.warn!=null) ? s.warn : S.settings.warn;
-const isLow = s => remS(s) <= limitS(s);
-const label = s => { const m = matById(s.matId); return 'Ø'+fmt(s.d)+' × '+fmt(s.l)+' mm'+(m?' · '+m.name:''); };
+const isLow = s => isCountS(s) ? (s.qty > 0 && s.warn != null && remS(s) <= s.warn) : remS(s) <= limitS(s);
+const label = s => { const m = matById(s.matId); if (isCountM(m)) return m.name + ' (adet)'; return 'Ø'+fmt(s.d)+' × '+fmt(s.l)+' mm'+(m?' · '+m.name:''); };
 
 function computeInfo(monthKey) {
   const mk = monthKey || currentMonth || todayMonth();
@@ -1529,15 +1542,29 @@ async function exportEncrypted() {
     downloadText('urun-takip-yedek-'+today()+'.json', JSON.stringify(out, null, 1));
     logAction('yedek_indir', 'Şifreli yedek indirildi');
     logAct('Yedek', 'Şifreli yedek dosyası indirildi');
-    toast('Yedek indirildi.');
+    toast('Yedek indirildi.'); markBackup();
   } catch(e) { alert('Yedek oluşturulamadı: '+e.message); }
 }
+function markBackup() { if (!S) return; S.settings.lastBackupAt = Date.now(); save(); bkCheck(); }
+function bkCheck() {   // haftada bir yedek hatırlatması (yalnızca yönetici)
+  const b = $('bkBanner'); if (!b) return;
+  if (!currentUser || currentUser.role !== 'admin' || !S) { b.classList.add('hide'); return; }
+  const last = S.settings.lastBackupAt || 0;
+  if (!last) { S.settings.lastBackupAt = Date.now(); save(); b.classList.add('hide'); return; }
+  const days = Math.floor((Date.now() - last) / 864e5);
+  if (days < 7 || prefs.bkSnooze === today()) { b.classList.add('hide'); return; }
+  b.innerHTML = '💾 Haftalık yedek zamanı — son yedek ' + days + ' gün önce. <button id="bkNow">Yedeği şimdi indir</button> <button id="bkLater" class="ghost">Yarın hatırlat</button>';
+  b.classList.remove('hide');
+  $('bkNow').onclick = () => exportEncrypted();
+  $('bkLater').onclick = () => { prefs.bkSnooze = today(); savePrefs(); bkCheck(); };
+}
+setInterval(bkCheck, 3600000);
 ['bkDl','bkExport'].forEach(id=>{ const el = $(id); if (el) el.onclick = exportEncrypted; });
 $('bkExportPlain').onclick = () => {
   if (!confirm('Şifresiz yedek, tüm verileri (kullanıcı bilgileri dahil) herkesin okuyabileceği düz metin olarak içerir. Devam edilsin mi?')) return;
   const out = {v:7, app:'urun-takip', plain:true, createdAt:new Date().toISOString(), creator: currentUser?.username||'', data:snapshot()};
   downloadText('urun-takip-yedek-sifresiz-'+today()+'.json', JSON.stringify(out, null, 1));
-  logAction('yedek_indir', 'Şifresiz yedek indirildi'); logAct('Yedek', 'Şifresiz yedek dosyası indirildi'); toast('Şifresiz yedek indirildi.');
+  logAction('yedek_indir', 'Şifresiz yedek indirildi'); logAct('Yedek', 'Şifresiz yedek dosyası indirildi'); toast('Şifresiz yedek indirildi.'); markBackup();
 };
 ['bkImp','bkImport'].forEach(id=>{ const el = $(id); if (el) el.onclick = ()=>$('imp').click(); });
 $('imp').onchange = async e => {
@@ -1674,6 +1701,11 @@ function renderStockCards() {
   if (!S.stocks.length) { c.innerHTML = '<div class="sk-empty">Henüz stok eklenmedi.</div>'; return; }
   c.innerHTML = S.stocks.map(s=>{
     const r = remS(s), m = matById(s.matId);
+    if (isCountS(s)) return `<div class="skcard ${isLow(s)?'low':''}" title="${esc(label(s))}">
+      <div class="sklbl">${esc(m.name)}${isLow(s)?' · AZ':''}</div>
+      <div class="skmat">adet takibi</div>
+      ${s.qty>0 ? `<div class="skval">${fmt(r)} <small>adet kaldı</small></div>` : `<div class="skval">${fmt(used(s))} <small>adet üretildi</small></div>`}
+    </div>`;
     return `<div class="skcard ${isLow(s)?'low':''}" title="${esc(label(s))}">
       <div class="sklbl">Ø${fmt(s.d)} × ${fmt(s.l)} mm${isLow(s)?' · AZ':''}</div>
       ${m?`<div class="skmat">${esc(m.name)}</div>`:''}
@@ -1687,6 +1719,7 @@ function renderTop() {
   if (!S.stocks.length) { $('chips').innerHTML = '<div class="chip">Henüz stok yok</div>'; return; }
   $('chips').innerHTML = S.stocks.map(s=>{
     const r = remS(s);
+    if (isCountS(s)) return `<div class="chip ${isLow(s)?'low':''}">${esc(label(s))}<br>${s.qty>0 ? `<b>${fmt(r)}</b> adet<small>${isLow(s)?'AZ':'kalan'}</small>` : `<b>${fmt(used(s))}</b> adet<small>üretildi</small>`}</div>`;
     return `<div class="chip ${isLow(s)?'low':''}">${label(s)}<br><b>${fmt(r)}</b> çubuk<small>${fmt(r*bw(s))} kg${isLow(s)?' · AZ':''}</small></div>`;
   }).join('');
 }
@@ -1694,12 +1727,22 @@ function renderTop() {
 let editId = null, manualW = false, last = 'qty', matEditId = null;
 function fillMatSelect() {
   const cur = $('fMat').value;
-  const opts = S.materials.filter(m=>!m.archived||m.id===cur).map(m=>`<option value="${m.id}">${esc(m.name)} · ${fmt(m.dens,2)} g/cm³${m.archived?' (eski)':''}</option>`).join('');
+  const opts = S.materials.filter(m=>!m.archived||m.id===cur).map(m=>`<option value="${m.id}">${esc(m.name)} · ${m.countOnly?'adet takibi':fmt(m.dens,2)+' g/cm³'}${m.archived?' (eski)':''}</option>`).join('');
   $('fMat').innerHTML = '<option value="">— seçilmedi (genel '+fmt(S.settings.dens,2)+') —</option>'+opts;
+  setTimeout(applyStockMode, 0);
   $('fMat').value = (cur && S.materials.some(m=>m.id===cur)) ? cur : '';
 }
 function getFormDens() { const m = matById($('fMat').value); return m&&m.dens>0?m.dens:S.settings.dens; }
+function applyStockMode() {
+  const c = isCountM(matById($('fMat').value));
+  ['fD','fL','fW','fKg'].forEach(i => { const g = $(i).closest('.grid > div'); if (g) g.classList.toggle('hide', c); });
+  $('fQty').previousElementSibling.textContent = c ? 'Stok adedi (isteğe bağlı)' : 'Stok adedi (çubuk)';
+  $('fWarn').previousElementSibling.textContent = c ? 'Uyarı limiti (adet, isteğe bağlı)' : 'Uyarı limiti (çubuk)';
+  $('fSave').title = c ? 'Bu malzeme için çap, boy ve ağırlık gerekmez' : '';
+  return c;
+}
 function recalcForm() {
+  if (applyStockMode()) return;
   const d = num($('fD').value), l = num($('fL').value);
   const dens = getFormDens();
   const autoW = (d>0&&l>0) ? calcW(d,l,dens) : 0;
@@ -1728,6 +1771,15 @@ function resetForm() {
 }
 $('fCancel').onclick = () => { resetForm(); renderStocks(); };
 $('fSave').onclick = () => {
+  if (isCountM(matById($('fMat').value))) {   // adet takibi malzemesi: çap/boy/ağırlık gerekmez
+    const qty = num($('fQty').value);
+    if (qty < 0) { alert('Adet negatif olamaz.'); return; }
+    const warn = $('fWarn').value.trim()==='' ? null : num($('fWarn').value);
+    const rec = {d:0, l:0, w:0, wManual:false, qty, date:$('fDate').value||today(), warn, matId:$('fMat').value};
+    if (editId) { Object.assign(stockById(editId), rec); logAction('stok_düzenle', label(rec) + ' — ' + fmt(qty) + ' adet'); }
+    else { S.stocks.push(Object.assign({id:uid()}, rec)); logAction('stok_ekle', label(rec) + ' — ' + fmt(qty) + ' adet'); }
+    save(); resetForm(); renderAll(); return;
+  }
   const d = num($('fD').value), l = num($('fL').value);
   if (d<=0||l<=0) { alert('Çap ve boy gir.'); return; }
   const matId = $('fMat').value||'';
@@ -1755,6 +1807,17 @@ function renderStocks() {
   if (!S.stocks.length) { b.innerHTML = '<tr><td colspan="10" class="empty">Henüz stok eklenmedi.</td></tr>'; return; }
   b.innerHTML = S.stocks.map(s=>{
     const r = remS(s), u = used(s), w = bw(s), m = matById(s.matId);
+    if (isCountS(s)) return `<tr class="${isLow(s)?'low':''}"${editId===s.id?' style="outline:2px solid var(--pri);outline-offset:-2px"':''}>
+      <td><b>${esc(m.name)}</b> <span class="badge" style="background:#6b7280">adet</span>${isLow(s)?'<span class="badge">AZ</span>':''}</td>
+      <td>adet takibi</td><td class="num">—</td><td>${trDate(s.date)}</td>
+      <td class="num">${s.qty>0?fmt(s.qty):'—'}</td><td class="num">${fmt(u)}</td>
+      <td class="num remc">${s.qty>0?fmt(r):'—'}</td><td class="num remc">—</td>
+      <td class="num">${s.warn!=null?fmt(s.warn)+'*':'—'}</td>
+      <td>
+        <button class="btn sm" data-act="arr" data-id="${s.id}">+ Geliş</button>
+        <button class="btn sm sec" data-act="edit" data-id="${s.id}">Düzenle</button>
+        <button class="btn sm del" data-act="del" data-id="${s.id}">Sil</button>
+      </td></tr>`;
     return `<tr class="${isLow(s)?'low':''}"${editId===s.id?' style="outline:2px solid var(--pri);outline-offset:-2px"':''}>
       <td><b>Ø${fmt(s.d)} × ${fmt(s.l)} mm</b>${isLow(s)?'<span class="badge">AZ</span>':''}</td>
       <td>${m?esc(m.name):'<span style="color:var(--mut)">genel</span>'}</td>
@@ -1776,10 +1839,11 @@ $('stockBody').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
   const s = stockById(b.dataset.id); if (!s) return;
   if (b.dataset.act==='arr') {
-    const n = num(prompt(label(s)+' için gelen çubuk adedi:'));
+    const cnt = isCountS(s);
+    const n = num(prompt(label(s)+' için gelen '+(cnt?'adet:':'çubuk adedi:')));
     if (n>0) {
       s.qty += n; s.date = today();
-      logAction('stok_geliş', label(s) + ' +' + fmt(n) + ' çubuk');
+      logAction('stok_geliş', label(s) + ' +' + fmt(n) + (cnt?' adet':' çubuk'));
       save(); renderAll();
     }
   } else if (b.dataset.act==='edit') {
@@ -1811,7 +1875,7 @@ $('stockBody').onclick = e => {
 
 const prodById = id => S.products.find(p=>p.id===id);
 function stockOptions(sel) {
-  return '<option value="">— seç —</option>'+S.stocks.map(s=>`<option value="${s.id}" ${s.id===sel?'selected':''}>${label(s)}</option>`).join('');
+  return '<option value="">— yok (yalnızca adet takibi) —</option>'+S.stocks.map(s=>`<option value="${s.id}" ${s.id===sel?'selected':''}>${label(s)}</option>`).join('');
 }
 function renderProducts() {
   const sel = $('pStock'), cur = sel.value;
@@ -1840,7 +1904,7 @@ function updateProdRow(tr) {
   const p = prodById(tr.dataset.id); if (!p) return;
   const s = stockById(p.stockId), pp = partsPer(s, p);
   const cell = tr.querySelector('[data-c=parts]');
-  if (!s) { cell.innerHTML = '<span class="warnTxt">Stok yok</span>'; cell.title=''; }
+  if (!s || isCountS(s)) { cell.innerHTML = '<span style="color:var(--mut)">—</span>'; cell.title = 'Adet takibi: çubuk/kg hesabı yok'; }
   else if (p.raw<=0) { cell.innerHTML = '<span class="warnTxt">Ham boy gerekli</span>'; cell.title=''; }
   else if (pp<=0) { cell.innerHTML = '<span class="warnTxt">⚠ sığmıyor</span>'; cell.title=''; }
   else {
@@ -1850,7 +1914,7 @@ function updateProdRow(tr) {
   }
   tr.querySelector('[data-c=made]').textContent = fmt(madeP(p))+' adet';
   const ub = usedBarsP(p);
-  tr.querySelector('[data-c=use]').innerHTML = s ? `${fmt(ub)} çubuk · ${fmt(ub*bw(s))} kg` : '—';
+  tr.querySelector('[data-c=use]').innerHTML = (s && !isCountS(s)) ? `${fmt(ub)} çubuk · ${fmt(ub*bw(s))} kg` : '—';
 }
 $('prodBody').addEventListener('input', e=>{
   const tr = e.target.closest('tr[data-id]'); if (!tr) return;
@@ -1865,7 +1929,7 @@ $('prodBody').addEventListener('input', e=>{
 });
 $('prodBody').addEventListener('change', e=>{
   const tr = e.target.closest('tr[data-id]'); if (!tr || e.target.dataset.f!=='stock') return;
-  prodById(tr.dataset.id).stockId = e.target.value; afterChange();
+  prodById(tr.dataset.id).stockId = e.target.value; afterChange(); renderProducts();
 });
 $('prodBody').addEventListener('click', e=>{
   const b = e.target.closest('button'); if (!b) return;
@@ -1880,17 +1944,16 @@ $('pAdd').onclick = () => {
   const code = $('pCode').value.trim(), sid = $('pStock').value, raw = num($('pRaw').value);
   if (!code) { alert('Ürün kodu gir.'); return; }
   if (prodByCode(code)) { alert('Bu kod zaten var.'); return; }
-  if (!sid) { alert('Stok seç.'); return; }
-  if (raw<=0) { alert('Ham boy gir.'); return; }
-  const s = stockById(sid);
-  if (raw>s.l && !confirm('Ham boy çubuk boyundan uzun, eklenisin mi?')) return;
+  const s = sid ? stockById(sid) : null;
+  const bar = !!(s && !isCountS(s));
+  if (bar && raw>s.l && !confirm('Ham boy çubuk boyundan uzun, eklensin mi?')) return;
   const maxTxt = $('pMax').value.trim(), kerfTxt = $('pKerf').value.trim();
   const procTxt = $('pProcSec').value.trim();
   const maxLen = maxTxt===''?null:Math.max(0,num(maxTxt));
   const kerf = kerfTxt===''?null:Math.max(0,num(kerfTxt));
   const procSec = procTxt==='' ? 0 : Math.max(0, num(procTxt));
-  S.products.push({id:uid(), code, cat:$('pCat').value.trim(), stockId:sid, raw, maxLen, kerf, procSec});
-  logAction('ürün_ekle', code + ' → ' + label(s) + ' ham ' + raw + 'mm' + (procSec?' · proses '+procSec+'sn':''));
+  S.products.push({id:uid(), code, cat:$('pCat').value.trim(), stockId:sid||'', raw:bar&&raw>0?raw:0, maxLen:bar?maxLen:null, kerf:bar?kerf:null, procSec});
+  logAction('ürün_ekle', code + (s ? ' → ' + label(s) : ' (yalnızca adet takibi)') + (bar&&raw>0 ? ' ham ' + raw + 'mm' : '') + (procSec?' · proses '+procSec+'sn':''));
   $('pCode').value=''; $('pCat').value=''; $('pRaw').value=''; $('pMax').value=''; $('pKerf').value=''; $('pProcSec').value='';
   save(); renderAll();
 };
@@ -1939,7 +2002,7 @@ function renderMaterials() {
     const cnt = S.stocks.filter(s=>s.matId===m.id).length;
     return `<tr data-id="${m.id}"${matEditId===m.id?' style="outline:2px solid var(--pri);outline-offset:-2px"':''}>
       <td><b>${esc(m.name)}</b></td>
-      <td class="num">${fmt(m.dens,3)}</td>
+      <td class="num">${m.countOnly?'<span style="color:var(--mut)">adet takibi</span>':fmt(m.dens,3)}</td>
       <td style="max-width:340px;overflow:hidden;text-overflow:ellipsis" title="${esc(m.note||'')}">${esc(m.note||'')}</td>
       <td class="num">${cnt}</td>
       <td>
@@ -1954,7 +2017,7 @@ $('matBody').addEventListener('click', e=>{
   const m = S.materials.find(x=>x.id===b.closest('tr').dataset.id); if (!m) return;
   if (b.dataset.act==='medit') {
     matEditId = m.id;
-    $('mName').value = m.name; $('mDens').value = rnd(m.dens,3); $('mNote').value = m.note||'';
+    $('mName').value = m.name; $('mDens').value = m.dens>0?rnd(m.dens,3):''; $('mNote').value = m.note||''; $('mCount').checked = !!m.countOnly; applyMatMode();
     $('mAdd').textContent = 'Değişiklikleri kaydet';
     renderMaterials();
     window.scrollTo({top:0,behavior:'smooth'});
@@ -1964,7 +2027,7 @@ $('matBody').addEventListener('click', e=>{
       const nm = m.name;
       S.stocks.forEach(s=>{ if (s.matId===m.id) s.matId=''; });
       S.materials = S.materials.filter(x=>x.id!==m.id);
-      if (matEditId===m.id) { matEditId=null; $('mAdd').textContent='Malzeme ekle'; $('mName').value=''; $('mDens').value=''; $('mNote').value=''; }
+      if (matEditId===m.id) { matEditId=null; $('mAdd').textContent='Malzeme ekle'; $('mName').value=''; $('mDens').value=''; $('mNote').value=''; $('mCount').checked=false; applyMatMode(); }
       logAction('malzeme_sil', nm);
       save(); renderAll();
     }
@@ -1972,14 +2035,19 @@ $('matBody').addEventListener('click', e=>{
 });
 $('mAdd').onclick = async () => {
   const name = $('mName').value.trim();
-  const dens = num($('mDens').value);
+  const cnt = $('mCount').checked;
+  const dens = cnt ? 0 : num($('mDens').value);
   const note = $('mNote').value.trim();
   if (!name) { alert('Malzeme adı gir.'); return; }
-  if (dens<=0) { alert('Yoğunluk gir.'); return; }
+  if (!cnt && dens<=0) { alert('Yoğunluk gir.'); return; }
   if (S.materials.some(m=>!m.archived && normC(m.name)===normC(name) && m.id!==matEditId)) { alert('Bu isimde malzeme var.'); return; }
   if (matEditId) {
     const m = matById(matEditId);
-    if (m && (m.name !== name || Math.abs(m.dens - dens) > 1e-9)) {
+    if (m && !!m.countOnly !== cnt) {
+      const n0 = S.stocks.filter(s=>s.matId===m.id).length;
+      if (n0 && !confirm('Bu malzemeyi kullanan ' + n0 + ' stok var. ' + (cnt ? 'Bu stoklar için çubuk/kg hesabı kapatılacak, yalnızca adet izlenecek.' : 'Bu stoklar çubuk olarak hesaplanacak; çap ve boy bilgisi eksikse sıfır görünür.') + ' Devam edilsin mi?')) return;
+    }
+    if (m && !cnt && (m.name !== name || Math.abs(m.dens - dens) > 1e-9)) {
       const n = S.stocks.filter(s=>s.matId===m.id).length;
       const ch = [m.name !== name ? `ad: <b>${esc(m.name)}</b> → <b>${esc(name)}</b>` : '', Math.abs(m.dens - dens) > 1e-9 ? `yoğunluk: <b>${fmt(m.dens,3)}</b> → <b>${fmt(dens,3)}</b> g/cm³` : ''].filter(Boolean).join(' · ');
       const sc = await askScope('Değişiklik ne zaman geçerli olsun?', ch + '<br>Bu malzemeyi kullanan <b>' + n + '</b> stok var.<br><br><b>Geçmişten bu yana:</b> mevcut tüm stok ve hesaplar yeni değere göre güncellenir.<br><b>Bu andan itibaren:</b> mevcut stoklar eski değerle kalır, yeni eklenecek stoklar yeni değeri kullanır.');
@@ -1991,15 +2059,18 @@ $('mAdd').onclick = async () => {
       }
       logAction('malzeme_düzenle', (sc==='all' ? '[geçmişten bu yana] ' : '[bu andan itibaren] ') + name + ' · ' + fmt(dens,2) + ' g/cm³');
     }
-    if (m) Object.assign(m, {name, dens, note});
+    if (m && cnt && m.name !== name) logAction('malzeme_düzenle', m.name + ' → ' + name);
+    if (m) Object.assign(m, {name, dens, note, countOnly: cnt});
     matEditId = null; $('mAdd').textContent = 'Malzeme ekle';
   } else {
-    S.materials.push({id:uid(), name, dens, note});
-    logAction('malzeme_ekle', name + ' · ' + fmt(dens,2) + ' g/cm³');
+    S.materials.push({id:uid(), name, dens, note, countOnly: cnt});
+    logAction('malzeme_ekle', name + (cnt ? ' · adet takibi' : ' · ' + fmt(dens,2) + ' g/cm³'));
   }
-  $('mName').value=''; $('mDens').value=''; $('mNote').value='';
+  $('mName').value=''; $('mDens').value=''; $('mNote').value=''; $('mCount').checked = false; applyMatMode();
   save(); renderAll();
 };
+function applyMatMode() { $('mDensBox').classList.toggle('hide', $('mCount').checked); }
+$('mCount').onchange = applyMatMode;
 
 function secToHM(total) {
   if (!total) return '—';
@@ -2141,7 +2212,7 @@ $('teamAdd').onclick = () => {
 
 function renderUsers() {
   const b = $('usersBody');
-  if (!USERS || !USERS.users.length) { b.innerHTML = '<tr><td colspan="4" class="empty">Kullanıcı yok.</td></tr>'; return; }
+  if (!USERS || !USERS.users.length) { b.innerHTML = '<tr><td colspan="5" class="empty">Kullanıcı yok.</td></tr>'; return; }
   const adminCount = USERS.users.filter(u=>u.role==='admin').length;
   b.innerHTML = USERS.users.map(u=>{
     const isMe = u.id===currentUser.id;
@@ -2149,8 +2220,10 @@ function renderUsers() {
     return `<tr>
       <td><b>${esc(u.username)}</b>${isMe?' <span style="color:var(--mut);font-size:11px">(siz)</span>':''}</td>
       <td>${u.role==='admin'?'<b style="color:var(--pri)">Yönetici</b>':'Normal'}</td>
+      <td>${u.role==='admin' ? '<span style="color:var(--mut)">ana şifre</span>' : (u.pw ? '🔒 var' : '<span style="color:var(--mut)">yok</span>')}</td>
       <td>${trDate(dstr(new Date(u.createdAt)))}</td>
       <td>
+        ${u.role!=='admin' ? `<button class="btn sm sec" data-act="upw" data-uid="${u.id}">${u.pw?'Şifre değiştir':'Şifre koy'}</button>${u.pw?` <button class="btn sm sec" data-act="upwdel" data-uid="${u.id}">Şifreyi kaldır</button>`:''} ` : ''}
         ${u.role==='admin'
           ? `<button class="btn sm sec" data-act="urole" data-uid="${u.id}" ${!canDemote?'disabled title="Son yönetici"':''}>Normal yap</button>`
           : `<button class="btn sm sec" data-act="urole" data-uid="${u.id}">Admin yap</button>`}
@@ -2159,10 +2232,21 @@ function renderUsers() {
     </tr>`;
   }).join('');
 }
-$('usersBody').addEventListener('click', e=>{
+$('usersBody').addEventListener('click', async e=>{
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   const u = USERS.users.find(x=>x.id===b.dataset.uid); if (!u) return;
-  if (b.dataset.act==='urole') {
+  if (b.dataset.act==='upw') {
+    const p1 = await askPassword(u.pw ? 'Yeni şifre' : 'Şifre koy', u.username + ' için yeni şifre (en az 4 karakter)', true); if (!p1) return;
+    if (p1.length < 4) { alert('En az 4 karakter.'); return; }
+    const p2 = await askPassword('Şifreyi tekrar', u.username + ' için şifreyi tekrar girin', true); if (!p2) return;
+    if (p1 !== p2) { alert('Şifreler eşleşmedi.'); return; }
+    u.pw = await hashPass(p1); persistUsers(); renderUsers();
+    logAction('kullanıcı_ekle', u.username + ' şifresi değiştirildi'); logAct('Kullanıcı', u.username + ' şifresi değiştirildi'); toast('Şifre kaydedildi.');
+  } else if (b.dataset.act==='upwdel') {
+    if (!confirm(u.username + ' şifresiz girebilsin mi?')) return;
+    delete u.pw; persistUsers(); renderUsers();
+    logAction('kullanıcı_ekle', u.username + ' şifresi kaldırıldı'); logAct('Kullanıcı', u.username + ' şifresi kaldırıldı'); toast('Şifre kaldırıldı.');
+  } else if (b.dataset.act==='urole') {
     if (u.role==='admin') {
       if (USERS.users.filter(x=>x.role==='admin').length<=1) { alert('En az bir yönetici kalmalı.'); return; }
       if (!confirm(u.username+' normal kullanıcıya düşürülsün mü?')) return;
@@ -2188,16 +2272,24 @@ $('usersBody').addEventListener('click', e=>{
     renderUsers();
   }
 });
-$('uAdd').onclick = () => {
+const uPwSync = () => { const adm = $('uRole').value === 'admin'; if (adm) $('uPwMode').value = 'none'; $('uPwMode').disabled = adm; $('uPwBox').classList.toggle('hide', adm || $('uPwMode').value !== 'pw'); };
+$('uRole').onchange = $('uPwMode').onchange = uPwSync;
+$('uAdd').onclick = async () => {
   const name = $('uName').value.trim();
   const role = $('uRole').value;
   if (!name || name.length<2) { alert('En az 2 karakter.'); return; }
   if (USERS.users.some(u=>normC(u.username)===normC(name))) { alert('Bu isimde kullanıcı var.'); return; }
-  USERS.users.push({id:uid(), username:name, role, createdAt:Date.now()});
+  const rec = {id:uid(), username:name, role, createdAt:Date.now()};
+  if (role !== 'admin' && $('uPwMode').value === 'pw') {
+    const pw = $('uPw').value;
+    if (pw.length < 4) { alert('Şifre en az 4 karakter olmalı.'); return; }
+    rec.pw = await hashPass(pw);
+  }
+  USERS.users.push(rec);
   persistUsers();
   logAct('Kullanıcı', 'Kullanıcı eklendi: '+name+' ('+(role==='admin'?'yönetici':'normal')+')');
   logAction('kullanıcı_ekle', name + ' (' + (role==='admin'?'Yönetici':'Normal') + ')');
-  $('uName').value=''; $('uRole').value='user';
+  $('uName').value=''; $('uRole').value='user'; $('uPw').value=''; $('uPwMode').value='none'; uPwSync();
   renderUsers();
   toast('Kullanıcı eklendi.');
 };
@@ -2216,6 +2308,7 @@ const ACTION_LABELS = {
 };
 function renderAudit() {
   const b = $('auditBody'); if (!b) return;
+  cloudAuditPull().then(ch => { if (ch) renderAudit(); });
   const filter = ($('auditFilter')?.value || '').toLowerCase().trim();
   const all = loadAudit();
   const filtered = filter
@@ -2245,7 +2338,7 @@ function renderAudit() {
     </tr>`;
   }).join('');
 }
-$('auditRefresh').onclick = () => { renderAudit(); toast('Döküm yenilendi.'); };
+$('auditRefresh').onclick = () => { audPulled = 0; renderAudit(); toast('Döküm yenilendi.'); };
 $('auditFilter').oninput = renderAudit;
 $('auditExport').onclick = () => {
   const all = loadAudit();
@@ -2260,7 +2353,8 @@ $('auditExport').onclick = () => {
 };
 $('auditClear').onclick = () => {
   if (!confirm('Tüm hareket dökümü silinsin mi? Bu işlem geri alınamaz.')) return;
-  saveAudit([]);
+  saveAudit([]); AUD_Q = []; saveAudQ();
+  if (CLOUD_MODE && MF.h === cloudHandle) fbReq('PUT', 'denetim', null).catch(() => {});
   renderAudit();
   logAction('döküm_sıfırla', 'Hareket dökümü temizlendi');
   toast('Hareket dökümü sıfırlandı.');
@@ -2480,7 +2574,7 @@ function entryUseText(e) {
   const p = prodByCode(e.code);
   if (!p) return e.code ? '<span class="warnTxt">Kod tanımsız</span>' : '';
   const s = stockById(p.stockId);
-  if (!s) return '<span class="warnTxt">Stok seçilmedi</span>';
+  if (!s || isCountS(s)) return '<span style="color:var(--mut)">—</span>';
   const pp = partsPer(s, p);
   if (pp<=0) return '<span class="warnTxt">⚠ sığmıyor</span>';
   const ub = (e.qty||0)/pp;
@@ -3267,19 +3361,21 @@ $('mpBtn').onclick = async () => {
   try {
     if (MF.h === cloudHandle) { try { await cloudChangePassword(nw); } catch(e) { $('mpMsg').innerHTML = '<span class="warnTxt">Bulut şifresi değiştirilemedi: ' + esc(e.message) + '</span>'; return; } }
     USERS.masterVerif = await hashPass(nw);
+    USERS.epoch = (USERS.epoch || 0) + 1;   // tüm oturumlar geçersiz
     persistUsers();
     masterPassword = nw;
-    if (MF.h) { MF.wrap = await encryptBlob({k: b64e(MF.raw)}, nw); try { await idbDo('meta','readwrite', s=>s.put(MF.wrap,'mw')); } catch(e) {} mfScheduleWrite(); }
+    if (MF.h && MF.raw) { MF.wrap = await encryptBlob({k: b64e(MF.raw)}, nw); try { await idbDo('meta','readwrite', s=>s.put(MF.wrap,'mw')); } catch(e) {} mfScheduleWrite(); }
     const sess = getSession();
     sess.masterPassword = nw;
     setSession(sess);
     const blob = await encryptBlob(snapshot(), nw);
     localStorage.setItem(DATA_KEY+'_bk', JSON.stringify(blob));
     $('mpOld').value = ''; $('mpNew').value = ''; $('mpNew2').value = '';
-    $('mpMsg').innerHTML = '<span style="color:var(--ok)">✔ Ana şifre değiştirildi.</span>';
+    $('mpMsg').innerHTML = '<span style="color:var(--ok)">✔ Ana şifre değiştirildi. Tüm oturumlar kapatılıyor…</span>';
     logAction('ayar_değiştir', 'Ana şifre değiştirildi');
-    toast('Ana şifre değişti.');
-    logAct('Kullanıcı', 'Ana şifre değiştirildi');
+    toast('Ana şifre değişti. Tüm oturumlar kapatıldı; yeni şifreyle tekrar giriş yapın.');
+    logAct('Kullanıcı', 'Ana şifre değiştirildi; tüm oturumlar kapatıldı');
+    setTimeout(async () => { try { await mfWriteNow(false); } catch(e) {} clearSession(); location.reload(); }, 1500);
   } catch(e) {
     $('mpMsg').innerHTML = '<span class="warnTxt">Hata: '+esc(e.message)+'</span>';
   }
@@ -3428,7 +3524,7 @@ function renderLoginList() {
     const isAdmin = u.role === 'admin';
     return `<button class="loginUserBtn ${isLast?'last':''}" data-uid="${u.id}">
       <span class="luName">${esc(u.username)}</span>
-      <span class="luRole ${isAdmin?'admin':''}">${isAdmin?'⚡ Yönetici':'Kullanıcı'}</span>
+      <span class="luRole ${isAdmin?'admin':''}">${isAdmin?'⚡ Yönetici':(u.pw?'🔒 Kullanıcı':'Kullanıcı')}</span>
     </button>`;
   }).join('');
 }
@@ -3445,6 +3541,10 @@ async function loginAs(uid) {
   if (u.role === 'admin') {
     mp = await askPassword('Yönetici Şifresi', u.username + ' olarak giriş');
     if (!mp) return;
+  } else if (u.pw) {
+    const up = await askPassword('Şifre', u.username + ' olarak giriş', true);
+    if (!up) return;
+    if (!(await verifyPass(up, u.pw))) { alert('Şifre yanlış.'); return; }
   }
   currentUser = u;
   masterPassword = mp;
@@ -3493,6 +3593,7 @@ async function enterApp() {
       catch(e) { fileState = 'perm'; }
     }
     await mfInit();
+    bkCheck();
     if (currentUser.role==='admin' && masterPassword) {
       await takeSnapshot('Giriş', false);
     }
@@ -3771,7 +3872,7 @@ const MF = {h:null, raw:null, ck:null, wrap:null, state:'none', mod:0, lastAt:0,
 const LOCAL_AT_KEY = 'urunTakip_localAt', SYNC_KEY = 'urunTakip_fileSync', DIRTY_KEY = 'urunTakip_fileDirty';
 const lsNum = k => { try { return +localStorage.getItem(k) || 0; } catch(e) { return 0; } };
 const lsPut = (k, v) => { try { localStorage.setItem(k, String(v)); } catch(e) {} };
-const mfIsOn = () => !SERVER && !!MF.h && !!MF.ck;
+const mfIsOn = () => !SERVER && !!MF.h && (!!MF.ck || MF.h === cloudHandle);
 async function mfPack(payload) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, MF.ck, new TextEncoder().encode(JSON.stringify(SERVER || !USERS ? payload : Object.assign({users: USERS}, payload))));
@@ -3807,7 +3908,7 @@ async function mfDetach() {
 }
 async function mfInit() {
   if (SERVER) return;
-  if (CLOUD_MODE) { mfUI(); return; }
+  if (CLOUD_MODE) { mfUI(); if (MF.h === cloudHandle) cloudSync(); return; }
   try {
     const h = window.__mfHandle ? await window.__mfHandle() : await idbDo('meta', 'readonly', s => s.get('mh'));   // __mfHandle: yalnızca otomatik test için
     const k = await idbDo('meta', 'readonly', s => s.get('mk'));
@@ -3838,6 +3939,7 @@ async function mfFallback() {   // izin yokken: günde bir kez otomatik .json ye
 }
 async function mfDoWrite(force) {
   if (!mfIsOn()) return;
+  if (MF.h === cloudHandle) { await cloudSync(); return; }
   try {
     let p = 'prompt';
     try { p = await MF.h.queryPermission({mode:'readwrite'}); } catch(e) {}
@@ -3854,7 +3956,7 @@ async function mfDoWrite(force) {
   mfUI();
 }
 async function mfLoadPayload(p) {
-  if (p.users && p.users.users && p.users.users.length) { USERS = p.users; try { localStorage.setItem(USERS_KEY, JSON.stringify(USERS)); } catch(e) {} }
+  if (p.users && p.users.users && p.users.users.length) { USERS = p.users; try { localStorage.setItem(USERS_KEY, JSON.stringify(USERS)); } catch(e) {} checkEpoch(); }
   S = normalize(p.data);
   try { localStorage.setItem(DATA_KEY, JSON.stringify(snapshot())); } catch(e) {}
   lsPut(LOCAL_AT_KEY, p.savedAt || Date.now()); lsPut(SYNC_KEY, p.savedAt || Date.now()); lsPut(DIRTY_KEY, 0);
@@ -3862,8 +3964,14 @@ async function mfLoadPayload(p) {
   if (typeof loadSettingsUI === 'function' && currentUser) { loadSettingsUI(); renderAll(); initAlarmed(); applyYieldVisibility(); applyRoleUI(); }
   mfUI();
 }
+function checkEpoch() {   // ana şifre başka bir bilgisayarda değiştiyse bu oturumu kapat
+  if (!currentUser || !USERS) return;
+  const sess = getSession();
+  if (sess && (sess.epoch || 0) !== (USERS.epoch || 0)) { clearSession(); alert('Ana şifre değiştirildi. Yeniden giriş yapmanız gerekiyor.'); location.reload(); }
+}
 async function mfReconcile() {
   if (!mfIsOn()) return;
+  if (MF.h === cloudHandle) { await cloudSync(); return; }
   try {
     const f = await MF.h.getFile(); MF.mod = f.lastModified;
     if (f.size === 0) { await mfDoWrite(true); return; }
@@ -4114,7 +4222,8 @@ async function cloudRefresh(rt) {
 async function cloudToken() {
   if (CLOUD.tok && Date.now() < CLOUD.exp - 60000) return CLOUD.tok;
   if (!CLOUD.refresh) throw new Error('Bulut oturumu yok');
-  await cloudRefresh(CLOUD.refresh);
+  try { await cloudRefresh(CLOUD.refresh); }
+  catch(e) { if (e.fb && /TOKEN_EXPIRED|INVALID_REFRESH_TOKEN|USER_DISABLED|CREDENTIAL_TOO_OLD|USER_NOT_FOUND/.test(e.message) && currentUser) { clearSession(); alert('Ana şifre değiştirildi. Yeniden giriş yapmanız gerekiyor.'); location.reload(); } throw e; }
   return CLOUD.tok;
 }
 async function cloudChangePassword(nw) {
@@ -4122,31 +4231,189 @@ async function cloudChangePassword(nw) {
   cloudTake(j); CLOUD.pw = nw;
   try { await idbDo('meta', 'readwrite', s => s.put(CLOUD.refresh, 'fbr')); } catch(e) {}
 }
-const cloudUrl = async () => FB_CONFIG.databaseURL.replace(/\/$/, '') + '/' + FB_CONFIG.path + '.json?auth=' + encodeURIComponent(await cloudToken());
-const cloudHandle = {
-  name: 'Bulut (Firebase)', cloud: true,
-  async queryPermission() { return 'granted'; }, async requestPermission() { return 'granted'; },
-  async getFile() {
-    const r = await fetch(await cloudUrl(), {cache: 'no-store'});
-    if (!r.ok) throw new Error('Bulut okunamadı (HTTP ' + r.status + ')');
-    const j = await r.json(), text = j ? JSON.stringify(j) : '';
-    return {size: text.length, lastModified: j ? (j.savedAt || 1) : 0, text: async () => text};
-  },
-  async createWritable() {
-    let buf = '';
-    return {write: async t => { buf = t; }, close: async () => {
-      const r = await fetch(await cloudUrl(), {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(mfParseText(buf))});
-      if (!r.ok) throw new Error('Buluta yazılamadı (HTTP ' + r.status + ')');
-    }};
+/* ---- Bulut veri yapısı (ay ay, düz metin) ----
+   uretim-takip/
+     meta/    {surum, guncelleme, genel:<damga>, aylar:{"2026-11":<damga>}, aciklama}
+     genel/   ayarlar, makineler, giris{masterVerif,epoch}, kullanicilar/{id:{…}}, malzemeler/{id}, stoklar/{id}, urunler/{id}, vardiyaSaatleri/{id}, ekipler/{id}  (+ her koleksiyonda _sira = sıralama)
+     uretim/  "2026-11": {ozet:{kayit,adet}, sira:[kayıt kimlikleri], kayitlar:{id:{hedef,makine,kod,adet,tarih,vardiya,ekip,operator,not}}}  ("tarihsiz": tarihi boş kayıtlar)
+     denetim/ "2026-11": {kayıt:{zaman,kullanici,rol,eylem,detay}}
+   Eşitleme: yerelde değişen yollar (parça parça) PATCH ile yazılır; başka cihazların değişiklikleri meta damgasıyla fark edilip yalnızca o ay/parça çekilir (3 yönlü birleştirme). */
+const FB_COLL = {malzemeler: 'materials', stoklar: 'stocks', urunler: 'products', vardiyaSaatleri: 'shiftPatterns', ekipler: 'shiftTeams'};
+const FB_COLLS = new Set(Object.keys(FB_COLL).concat('kullanicilar'));
+const FB_KNOWN = new Set(['settings', 'materials', 'stocks', 'products', 'machines', 'shiftPatterns', 'shiftTeams', 'entries']);
+const E2F = {target: 'hedef', machine: 'makine', code: 'kod', qty: 'adet', date: 'tarih', shift: 'vardiya', team: 'ekip', op: 'operator', note: 'not'};
+const F2E = Object.keys(E2F).reduce((a, k) => (a[E2F[k]] = k, a), {});
+const FB_DESC = 'Üretim Takip verisi. genel = ayarlar/stok/ürün/kullanıcı; uretim = ay ay üretim kayıtları; denetim = hareket dökümü; meta = eşitleme damgaları. Elle değiştirmeyin.';
+const fbKey = id => String(id).replace(/[.$#\[\]\/]/g, '_');
+function fbClean(v) {
+  if (v === null || v === undefined) return undefined;
+  if (typeof v === 'number') return isFinite(v) ? v : undefined;
+  if (Array.isArray(v)) { const a = v.map(fbClean).filter(x => x !== undefined); return a.length ? a : undefined; }
+  if (typeof v === 'object') { const o = {}; let n = 0; Object.keys(v).forEach(k => { const c = fbClean(v[k]); if (c !== undefined) { o[k] = c; n++; } }); return n ? o : undefined; }
+  return v;
+}
+const fbU = v => { const c = fbClean(v); return c === undefined ? undefined : stable(c); };
+const fbEntries = v => v == null ? [] : Array.isArray(v) ? v.map((x, i) => [String(i), x]) : Object.entries(v);
+const fbMonthOf = e => /^\d{4}-\d{2}/.test(e.date || '') ? e.date.slice(0, 7) : 'tarihsiz';
+const fbPart = p => { const a = p.split('/'); return a[0] === 'genel' ? 'genel' : 'uretim/' + a[1]; };
+function toFbEntry(e) { const o = {}; Object.keys(E2F).forEach(k => { const v = e[k]; if (v !== '' && v != null && v !== 0) o[E2F[k]] = v; }); return o; }
+function fromFbEntry(id, o) { const e = newEntry(); e.id = id; Object.keys(o || {}).forEach(k => { if (F2E[k]) e[F2E[k]] = o[k]; }); return e; }
+function cloudToUnits(data, users) {
+  const M = new Map(), put = (p, v) => { const s = fbU(v); if (s !== undefined) M.set(p, s); };
+  put('genel/ayarlar', data.settings); put('genel/makineler', data.machines);
+  const ek = {}; Object.keys(data).forEach(k => { if (!FB_KNOWN.has(k)) ek[k] = data[k]; }); put('genel/ek', ek);
+  const coll = (tr, arr) => { const ord = []; (arr || []).forEach(x => { if (!x.id) x.id = uid(); const k = fbKey(x.id); ord.push(k); put('genel/' + tr + '/' + k, x); }); put('genel/' + tr + '/_sira', ord); };
+  Object.keys(FB_COLL).forEach(tr => coll(tr, data[FB_COLL[tr]]));
+  if (users && users.users) { coll('kullanicilar', users.users); const g = Object.assign({}, users); delete g.users; put('genel/giris', g); }
+  const byM = new Map();
+  (data.entries || []).forEach(e => { if (isBlank(e)) return; if (!e.id) e.id = uid(); const ym = fbMonthOf(e); if (!byM.has(ym)) byM.set(ym, []); byM.get(ym).push(e); });
+  byM.forEach((arr, ym) => {
+    let sum = 0; const ord = [];
+    arr.forEach(e => { const k = fbKey(e.id); ord.push(k); sum += +e.qty || 0; put('uretim/' + ym + '/kayitlar/' + k, toFbEntry(e)); });
+    put('uretim/' + ym + '/sira', ord); put('uretim/' + ym + '/ozet', {kayit: arr.length, adet: Math.round(sum * 1000) / 1000});
+  });
+  return M;
+}
+function cloudFromUnits(units) {
+  const coll = {}, months = {}; let ayarlar, makineler, ek, giris;
+  units.forEach((s, p) => {
+    const a = p.split('/'), v = JSON.parse(s);
+    if (a[0] === 'genel') { if (a[1] === 'ayarlar') ayarlar = v; else if (a[1] === 'makineler') makineler = v; else if (a[1] === 'ek') ek = v; else if (a[1] === 'giris') giris = v; else (coll[a[1]] = coll[a[1]] || {})[a[2]] = v; }
+    else if (a[0] === 'uretim') { const m = months[a[1]] = months[a[1]] || {kayitlar: {}}; if (a[2] === 'sira') m.sira = v; else if (a[2] === 'kayitlar') m.kayitlar[a[3]] = v; }
+  });
+  const ordered = (c, ord, mk) => { const seen = new Set(), out = []; (Array.isArray(ord) ? ord : []).forEach(k => { if (c[k] !== undefined && !seen.has(k)) { seen.add(k); out.push(mk(k, c[k])); } }); Object.keys(c).sort().forEach(k => { if (k !== '_sira' && !seen.has(k)) out.push(mk(k, c[k])); }); return out; };
+  const list = n => { const c = coll[n] || {}; return ordered(c, c._sira, (k, v) => v); };
+  const data = {settings: ayarlar || {}, machines: makineler || [], materials: list('malzemeler'), stocks: list('stoklar'), products: list('urunler'), shiftPatterns: list('vardiyaSaatleri'), shiftTeams: list('ekipler'), entries: []};
+  Object.assign(data, ek || {});
+  Object.keys(months).sort((x, y) => (x === 'tarihsiz') - (y === 'tarihsiz') || (x < y ? -1 : x > y ? 1 : 0)).forEach(ym => {
+    const m = months[ym]; ordered(m.kayitlar, m.sira, (k, v) => fromFbEntry(k, v)).forEach(e => data.entries.push(e));
+  });
+  const users = coll.kullanicilar ? Object.assign({}, giris || {}, {users: list('kullanicilar')}) : null;
+  return {users, data};
+}
+function cloudNest(units, part) {
+  const root = {}, skip = part === 'genel' ? 1 : 2;
+  units.forEach((s, p) => { if (fbPart(p) !== part) return; const a = p.split('/').slice(skip); let o = root; for (let i = 0; i < a.length - 1; i++) o = o[a[i]] = o[a[i]] || {}; o[a[a.length - 1]] = JSON.parse(s); });
+  return root;
+}
+function cloudFlatten(part, obj) {
+  const out = new Map(); if (obj == null) return out;
+  if (part === 'genel') fbEntries(obj).forEach(([k, v]) => { if (FB_COLLS.has(k)) fbEntries(v).forEach(([id, r]) => { const s = fbU(r); if (s !== undefined) out.set('genel/' + k + '/' + id, s); }); else { const s = fbU(v); if (s !== undefined) out.set('genel/' + k, s); } });
+  else fbEntries(obj).forEach(([k, v]) => { if (k === 'kayitlar') fbEntries(v).forEach(([id, r]) => { const s = fbU(r); if (s !== undefined) out.set(part + '/kayitlar/' + id, s); }); else { const s = fbU(v); if (s !== undefined) out.set(part + '/' + k, s); } });
+  return out;
+}
+const CS = {last: new Map(), stamps: {genel: 0, aylar: {}}, busy: false, again: false, legacy: false};
+const fbBase = () => FB_CONFIG.databaseURL.replace(/\/$/, '') + '/' + FB_CONFIG.path;
+async function fbReq(method, rel, body, q) {
+  const url = fbBase() + (rel ? '/' + rel : '') + '.json?auth=' + encodeURIComponent(await cloudToken()) + (q ? '&' + q : '');
+  const r = await fetch(url, {method, cache: 'no-store', headers: body !== undefined ? {'Content-Type': 'application/json'} : undefined, body: body !== undefined ? JSON.stringify(body) : undefined});
+  if (!r.ok) { const e = new Error('Bulut hatası (HTTP ' + r.status + ')'); e.status = r.status; throw e; }
+  return method === 'GET' ? r.json() : null;
+}
+const fbGet = (rel, q) => fbReq('GET', rel, undefined, q);
+async function cloudSaveBase() { try { await idbDo('meta', 'readwrite', s => s.put({last: [...CS.last], stamps: CS.stamps}, 'fbb')); } catch(e) {} }
+async function cloudFetchChanged(meta) {
+  const rS = {genel: (meta && meta.genel) || 0, aylar: (meta && meta.aylar) || {}}, changed = [];
+  if (rS.genel !== (CS.stamps.genel || 0)) changed.push('genel');
+  new Set(Object.keys(rS.aylar).concat(Object.keys(CS.stamps.aylar || {}))).forEach(ym => { if ((rS.aylar[ym] || 0) !== ((CS.stamps.aylar || {})[ym] || 0)) changed.push('uretim/' + ym); });
+  const RB = new Map(CS.last);
+  if (changed.length) {
+    const ps = new Set(changed);
+    [...RB.keys()].forEach(p => { if (ps.has(fbPart(p))) RB.delete(p); });
+    for (let i = 0; i < changed.length; i += 6) {
+      const grp = changed.slice(i, i + 6), res = await Promise.all(grp.map(pt => fbGet(pt)));
+      grp.forEach((pt, j) => cloudFlatten(pt, res[j]).forEach((s, p) => RB.set(p, s)));
+    }
   }
-};
+  return {RB, rS, changed};
+}
+async function cloudSyncOnce() {
+  const at0 = lsNum(LOCAL_AT_KEY), dirty = lsNum(DIRTY_KEY) === 1;
+  const meta = (await fbGet('meta')) || {};
+  const {RB, rS, changed} = await cloudFetchChanged(meta);
+  if (!dirty && !CS.legacy) {
+    if (!changed.length) { MF.state = 'ok'; MF.err = ''; return; }
+    CS.last = RB; CS.stamps = {genel: rS.genel, aylar: Object.assign({}, rS.aylar)};
+    const p = cloudFromUnits(RB);
+    await mfLoadPayload({users: p.users, data: p.data, savedAt: meta.guncelleme || Date.now()});
+    await cloudSaveBase(); MF.state = 'ok'; MF.err = ''; return;
+  }
+  const L = cloudToUnits(snapshot(), USERS), M = new Map(), patch = {};
+  new Set([...L.keys(), ...CS.last.keys(), ...RB.keys()]).forEach(p => {
+    const l = L.get(p), b = CS.last.get(p), r = RB.get(p), m = (l === b) ? r : l;
+    if (m !== undefined) M.set(p, m);
+    if (m !== r) patch[p] = m === undefined ? null : JSON.parse(m);
+  });
+  const keys = Object.keys(patch), touched = new Map(); keys.forEach(p => { const pt = fbPart(p); touched.set(pt, (touched.get(pt) || 0) + 1); });
+  const partsInM = new Set([...M.keys()].map(fbPart));
+  let ts = Math.max(Date.now(), rS.genel + 1, ...Object.values(rS.aylar).map(x => +x + 1 || 0));
+  if (keys.length) {
+    const puts = [...touched.keys()].filter(pt => touched.get(pt) > 150), putSet = new Set(puts);
+    for (const pt of puts) { const o = cloudNest(M, pt); await fbReq('PUT', pt, Object.keys(o).length ? o : null); }
+    const rest = keys.filter(p => !putSet.has(fbPart(p)));
+    for (let i = 0; i < rest.length; i += 300) { const o = {}; rest.slice(i, i + 300).forEach(p => { o[p] = patch[p]; }); await fbReq('PATCH', '', o); }
+    const mp = {'meta/surum': 8, 'meta/guncelleme': ts, 'meta/aciklama': FB_DESC};
+    touched.forEach((n, pt) => {
+      if (pt === 'genel') mp['meta/genel'] = ts;
+      else { const ym = pt.slice(7); mp['meta/aylar/' + ym] = partsInM.has(pt) ? ts : null; }
+    });
+    await fbReq('PATCH', '', mp);
+    MF.lastAt = ts;
+  }
+  const moved = lsNum(LOCAL_AT_KEY) !== at0;
+  const stamps = {genel: rS.genel, aylar: Object.assign({}, rS.aylar)};
+  touched.forEach((n, pt) => { if (pt === 'genel') stamps.genel = ts; else { const ym = pt.slice(7); if (partsInM.has(pt)) stamps.aylar[ym] = ts; else delete stamps.aylar[ym]; } });
+  if (!moved) {
+    let remote = false; M.forEach((s, p) => { if (L.get(p) !== s) remote = true; }); L.forEach((s, p) => { if (!M.has(p)) remote = true; });
+    CS.last = M; CS.stamps = stamps;
+    if (remote) { const p = cloudFromUnits(M); await mfLoadPayload({users: p.users, data: p.data, savedAt: ts}); }
+    lsPut(SYNC_KEY, ts); lsPut(DIRTY_KEY, 0);
+  } else {   // eşitleme sürerken kullanıcı veri girdi: yalnızca yazılanlar ilerler, uzak değişiklikler sonraki turda yeniden çekilir
+    keys.forEach(p => { if (M.has(p)) CS.last.set(p, M.get(p)); else CS.last.delete(p); });
+    touched.forEach((n, pt) => { if (!changed.includes(pt)) { if (pt === 'genel') CS.stamps.genel = stamps.genel; else { const ym = pt.slice(7); if (stamps.aylar[ym]) CS.stamps.aylar[ym] = stamps.aylar[ym]; else delete CS.stamps.aylar[ym]; } } });
+    CS.again = true;
+  }
+  if (CS.legacy) { await fbReq('PATCH', '', {v: null, app: null, kind: null, savedAt: null, wrap: null, iv: null, data: null}); CS.legacy = false; }
+  await cloudSaveBase();
+  MF.state = 'ok'; MF.err = '';
+}
+async function cloudSync() {
+  if (CS.busy) { CS.again = true; return; }
+  CS.busy = true;
+  try { await cloudSyncOnce(); } catch(e) { MF.state = 'err'; MF.err = e.message || String(e); }
+  CS.busy = false; mfUI();
+  if (CS.again) { CS.again = false; setTimeout(cloudSync, 300); }
+}
+const cloudHandle = {name: 'Bulut (Firebase)', cloud: true, async queryPermission() { return 'granted'; }, async requestPermission() { return 'granted'; }};
 async function mfCreateCloud(pw) {
-  const raw = crypto.getRandomValues(new Uint8Array(32));
-  const wrap = await encryptBlob({k: b64e(raw)}, pw);
-  MF.raw = raw; MF.wrap = wrap; MF.ck = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
-  await idbDo('meta', 'readwrite', st => { st.put(b64e(raw), 'mk'); st.put(wrap, 'mw'); });
-  MF.h = cloudHandle; MF.state = 'ok';
-  await mfDoWrite(true);
+  MF.h = cloudHandle; MF.state = 'ok'; CS.last = new Map(); CS.stamps = {genel: 0, aylar: {}};
+  lsPut(DIRTY_KEY, 1);
+  await cloudSync();
+  if (MF.state === 'err') throw new Error(MF.err);
+}
+/* ---- Bulut hareket dökümü (denetim/<ay>) ---- */
+let AUD_Q = []; try { AUD_Q = JSON.parse(localStorage.getItem('urunTakip_audQ') || '[]'); } catch(e) {}
+let audT = null, audPulled = 0;
+const saveAudQ = () => { try { localStorage.setItem('urunTakip_audQ', JSON.stringify(AUD_Q.slice(-2000))); } catch(e) {} };
+function cloudAuditPush(rec) { if (!CLOUD_MODE || MF.h !== cloudHandle) return; AUD_Q.push(rec); saveAudQ(); clearTimeout(audT); audT = setTimeout(cloudAuditFlush, 2500); }
+async function cloudAuditFlush() {
+  if (!CLOUD_MODE || MF.h !== cloudHandle || !AUD_Q.length) return;
+  const batch = AUD_Q.slice(), o = {};
+  batch.forEach(r => { o['denetim/' + new Date(r.ts).toISOString().slice(0, 7) + '/' + r.k] = {zaman: r.ts, kullanici: r.user, rol: r.role, eylem: r.action, detay: r.details || ''}; });
+  try { await fbReq('PATCH', '', o); AUD_Q = AUD_Q.filter(r => !batch.includes(r)); saveAudQ(); }
+  catch(e) { clearTimeout(audT); audT = setTimeout(cloudAuditFlush, 30000); }
+}
+async function cloudAuditPull() {
+  if (!CLOUD_MODE || MF.h !== cloudHandle || Date.now() - audPulled < 20000) return false;
+  audPulled = Date.now();
+  try {
+    const d = new Date(), m1 = d.toISOString().slice(0, 7); d.setMonth(d.getMonth() - 1);
+    const res = await Promise.all([m1, d.toISOString().slice(0, 7)].map(m => fbGet('denetim/' + m)));
+    const all = loadAudit(), have = new Set(all.map(r => r.k).filter(Boolean)); let add = 0;
+    res.forEach(o => fbEntries(o).forEach(([k, v]) => { if (!v || have.has(k)) return; have.add(k); add++; all.push({k, ts: v.zaman, user: v.kullanici, role: v.rol, action: v.eylem, details: v.detay}); }));
+    if (add) { all.sort((a, b) => b.ts - a.ts); if (all.length > 5000) all.length = 5000; saveAudit(all); return true; }
+  } catch(e) {}
+  return false;
 }
 function cloudGate() {
   return new Promise(async resolve => {
@@ -4157,7 +4424,6 @@ function cloudGate() {
     $('fgLocal').textContent = 'Çevrimdışı: bu tarayıcıdaki son veriyle devam et';
     $('fgLocal').classList.toggle('hide', !localStorage.getItem(USERS_KEY));
     const attempt = async pw => {
-      let j;
       try {
         if (pw) await cloudSignIn(pw);
         else { const rt = await idbDo('meta', 'readonly', s => s.get('fbr')); if (!rt) return 'badpw'; await cloudRefresh(rt); }
@@ -4165,23 +4431,52 @@ function cloudGate() {
         if (e.fb) { if (!pw) return 'badpw'; msg(/INVALID|PASSWORD|EMAIL_NOT_FOUND|CREDENTIALS/.test(e.message) ? 'Şifre yanlış.' : 'Firebase hatası: ' + e.message); return 'badpw'; }
         msg('İnternet bağlantısı kurulamadı.'); return 'net';
       }
-      try { const r = await fetch(await cloudUrl(), {cache: 'no-store'}); if (!r.ok) { msg('Bulut okunamadı (HTTP ' + r.status + '). Veritabanı kurallarını kontrol edin.'); return 'net'; } j = await r.json(); }
-      catch(e) { msg('İnternet bağlantısı kurulamadı.'); return 'net'; }
-      if (!j) { if (!CLOUD.pw) return 'badpw'; return 'new'; }
-      let raw = null;
-      try { const k = await idbDo('meta', 'readonly', s => s.get('mk')), w = await idbDo('meta', 'readonly', s => s.get('mw')); if (k && w && stable(w) === stable(j.wrap)) raw = b64d(k); } catch(e) {}
-      if (!raw) { if (!CLOUD.pw) return 'badpw'; try { raw = b64d((await decryptBlob(j.wrap, CLOUD.pw)).k); } catch(e) { msg('Bulut verisi bu şifreyle açılamadı.'); return 'net'; } }
       try {
-        MF.raw = raw; MF.wrap = j.wrap; MF.ck = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
-        await idbDo('meta', 'readwrite', st => { st.put(b64e(raw), 'mk'); st.put(j.wrap, 'mw'); });
-        const payload = await mfUnpack(j);
-        const sync = lsNum(SYNC_KEY), keepLocal = lsNum(DIRTY_KEY) === 1 && (payload.savedAt || 0) === sync;
-        if (!keepLocal) {
-          if (lsNum(DIRTY_KEY) === 1 && localStorage.getItem(USERS_KEY)) { try { mfDownload('uretim-takip-cakisma-yerel-' + mfStamp() + '.json', await mfPack({data: snapshot_ls(), savedAt: lsNum(LOCAL_AT_KEY)})); } catch(e) {} }
-          if (!mfApplyBoot(payload)) { msg('Bulut verisinde kullanıcı bilgisi yok.'); return 'net'; }
+        const meta = await fbGet('meta');
+        const hasLocal = !!(localStorage.getItem(USERS_KEY) && localStorage.getItem(DATA_KEY)), dirty = lsNum(DIRTY_KEY) === 1 && hasLocal;
+        if (!meta) {
+          const sh = await fbGet('', 'shallow=true');
+          if (!sh) { if (!CLOUD.pw) return 'badpw'; return 'new'; }
+          if (sh.iv) {   // eski sürümün şifreli tek kaydı: aç ve yeni düzene taşı
+            if (!CLOUD.pw) return 'badpw';
+            const j = await fbGet('');
+            let raw, pw2 = CLOUD.pw;
+            try { raw = b64d((await decryptBlob(j.wrap, pw2)).k); }
+            catch(e) {   // Firebase hesabı yeniden oluşturulmuş olabilir: eski veri eski ana şifreyle şifrelidir
+              pw2 = await askPassword('Eski ana şifre', 'Buluttaki eski veri, daha önce belirlediğiniz ana şifreyle şifrelenmiş. O şifreyi girin; yeni düzene taşınacak ve Firebase şifresi de buna eşitlenecek.', true);
+              if (!pw2) { msg('Eski ana şifre gerekli.'); return 'net'; }
+              try { raw = b64d((await decryptBlob(j.wrap, pw2)).k); } catch(e2) { msg('Bu şifreyle eski bulut verisi açılamadı.'); return 'net'; }
+            }
+            MF.ck = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+            const payload = await mfUnpack(j); MF.ck = null;
+            if (!mfApplyBoot(payload)) { msg('Bulut verisinde kullanıcı bilgisi yok.'); return 'net'; }
+            if (pw2 !== CLOUD.pw) { try { await cloudChangePassword(pw2); } catch(e) {} }
+            lsPut(DIRTY_KEY, 1); CS.last = new Map(); CS.stamps = {genel: 0, aylar: {}}; CS.legacy = true;
+            MF.h = cloudHandle; MF.state = 'ok'; return 'loaded';
+          }
+          msg('Bulutta tanınmayan veri var. Veritabanı yolunu kontrol edin.'); return 'net';
         }
-        MF.h = cloudHandle; MF.state = 'ok'; MF.mod = j.savedAt || 0; return 'loaded';
-      } catch(e) { msg('Bulut verisi okunamadı: ' + (e.message || e)); return 'net'; }
+        let base = null; try { base = await idbDo('meta', 'readonly', s => s.get('fbb')); } catch(e) {}
+        if (base && base.last && hasLocal) {
+          CS.last = new Map(base.last); CS.stamps = base.stamps || {genel: 0, aylar: {}};
+          if (!dirty) {
+            const {RB, rS} = await cloudFetchChanged(meta);
+            CS.last = RB; CS.stamps = {genel: rS.genel, aylar: Object.assign({}, rS.aylar)};
+            const p = cloudFromUnits(RB);
+            if (!mfApplyBoot({users: p.users, data: p.data, savedAt: meta.guncelleme || Date.now()})) { msg('Bulut verisinde kullanıcı bilgisi yok.'); return 'net'; }
+            await cloudSaveBase();
+          }
+        } else {
+          if (dirty) { try { mfDownload('uretim-takip-cakisma-yerel-' + mfStamp() + '.json', JSON.stringify({v: 7, app: 'urun-takip', plain: true, data: snapshot_ls()})); } catch(e) {} }
+          CS.last = new Map(); CS.stamps = {genel: 0, aylar: {}};
+          const {RB, rS} = await cloudFetchChanged(meta);
+          CS.last = RB; CS.stamps = {genel: rS.genel, aylar: Object.assign({}, rS.aylar)};
+          const p = cloudFromUnits(RB);
+          if (!mfApplyBoot({users: p.users, data: p.data, savedAt: meta.guncelleme || Date.now()})) { msg('Bulut verisinde kullanıcı bilgisi yok.'); return 'net'; }
+          await cloudSaveBase();
+        }
+        MF.h = cloudHandle; MF.state = 'ok'; return 'loaded';
+      } catch(e) { msg(e.status ? 'Bulut okunamadı (HTTP ' + e.status + '). Veritabanı kurallarını kontrol edin.' : 'İnternet bağlantısı kurulamadı.'); return 'net'; }
     };
     const run = async () => {
       msg(''); let r = await attempt(null);
@@ -4200,8 +4495,9 @@ setInterval(() => {   // diğer bilgisayarların değişikliklerini al / bekleye
   if (!CLOUD_MODE || MF.h !== cloudHandle || document.hidden || !currentUser) return;
   if (lsNum(DIRTY_KEY) === 1) { mfWriteNow(false); return; }
   const a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
-  mfReconcile();
+  cloudSync(); cloudAuditFlush();
 }, 15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD_MODE && MF.h === cloudHandle && currentUser) cloudSync(); });
 $('fgFbSave').onclick = () => {
   const o = {apiKey: $('fgApi').value.trim(), databaseURL: $('fgDb').value.trim(), email: $('fgMail').value.trim()};
   if (!o.apiKey || !o.databaseURL || !o.email) { $('fgMsg').textContent = 'Üç alanı da doldurun.'; return; }
@@ -4371,7 +4667,7 @@ function fv(c, k, v) {
   if (v === null || v === undefined || v === '') return '—';
   if (typeof v === 'string' && /^\d{4}-\d\d-\d\d$/.test(v)) return trDate(v);
   if (k === 'matId') { const m = matById(v) || (BASE && BASE.materials.find(x => x.id === v)); return m ? m.name : '—'; }
-  if (k === 'stockId') { const s = stockById(v) || (BASE && BASE.stocks.find(x => x.id === v)); return s ? 'Ø' + fmt(s.d) + '×' + fmt(s.l) : '—'; }
+  if (k === 'stockId') { const s = stockById(v) || (BASE && BASE.stocks.find(x => x.id === v)); return s ? ((s.d || s.l) ? 'Ø' + fmt(s.d) + '×' + fmt(s.l) : label(s)) : '—'; }
   if (typeof v === 'number') return fmt(v, 3);
   return String(v);
 }
@@ -4384,7 +4680,7 @@ function changes(c, lbls, b, o) {
   return out;
 }
 function objName(c, o) {
-  if (c === 'stocks') return 'Ø' + fmt(o.d) + ' × ' + fmt(o.l) + ' mm';
+  if (c === 'stocks') return (o.d || o.l) ? 'Ø' + fmt(o.d) + ' × ' + fmt(o.l) + ' mm' : label(o);
   if (c === 'products') return o.code || '—';
   return o.name || '—';
 }
@@ -4739,7 +5035,7 @@ $('hrClear').onclick = async () => {
     const sess = getSession();
     if (sess) {
       const u = USERS.users.find(x => x.id === sess.userId);
-      if (u) {
+      if (u && (sess.epoch || 0) === (USERS.epoch || 0)) {
         currentUser = u;
         masterPassword = sess.masterPassword || null;
         S = loadData();
