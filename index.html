@@ -826,6 +826,15 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
 
 <div id="scopeModal" class="modal hide"><div class="modalCard"><h3 id="scopeTitle"></h3><p id="scopeDesc"></p><div class="row" style="margin-top:0;flex-direction:column;align-items:stretch;gap:8px"><button class="btn" id="scopeAll">⏪ Geçmişten bu yana (tüm stok ve kayıtlar yeni değerle hesaplansın)</button><button class="btn sec" id="scopeNow">⏩ Bu andan itibaren (mevcut stoklar eski değerde kalsın)</button><button class="btn sec" id="scopeCancel">Vazgeç</button></div></div></div>
 
+<div id="ynModal" class="modal hide">
+  <div class="modalCard">
+    <p id="ynMsg" style="white-space:pre-line;font-size:15px;margin:0 0 14px"></p>
+    <div class="row" style="margin-top:0">
+      <button class="btn" id="ynOk">Evet</button>
+      <button class="btn sec" id="ynNo">Hayır</button>
+    </div>
+  </div>
+</div>
 <div id="pwModal" class="modal hide">
   <div class="modalCard">
     <h3 id="pwTitle">Şifre</h3>
@@ -1560,8 +1569,8 @@ function bkCheck() {   // haftada bir yedek hatırlatması (yalnızca yönetici)
 }
 setInterval(bkCheck, 3600000);
 ['bkDl','bkExport'].forEach(id=>{ const el = $(id); if (el) el.onclick = exportEncrypted; });
-$('bkExportPlain').onclick = () => {
-  if (!confirm('Şifresiz yedek, tüm verileri (kullanıcı bilgileri dahil) herkesin okuyabileceği düz metin olarak içerir. Devam edilsin mi?')) return;
+$('bkExportPlain').onclick = async () => {
+  if (!(await askYes('Şifresiz yedek, tüm verileri (kullanıcı bilgileri dahil) herkesin okuyabileceği düz metin olarak içerir. Devam edilsin mi?'))) return;
   const out = {v:7, app:'urun-takip', plain:true, createdAt:new Date().toISOString(), creator: currentUser?.username||'', data:snapshot()};
   downloadText('urun-takip-yedek-sifresiz-'+today()+'.json', JSON.stringify(out, null, 1));
   logAction('yedek_indir', 'Şifresiz yedek indirildi'); logAct('Yedek', 'Şifresiz yedek dosyası indirildi'); toast('Şifresiz yedek indirildi.'); markBackup();
@@ -1583,7 +1592,7 @@ $('imp').onchange = async e => {
       catch(err) { alert('Şifre yanlış veya dosya bozuk.'); return; }
     }
     if (!data.stocks || !data.products) { alert('Yedek içeriği geçersiz.'); return; }
-    if (!confirm('Mevcut veriler yedekle değiştirilsin mi?')) return;
+    if (!(await askYes('Mevcut veriler yedekle değiştirilsin mi?'))) return;
     const curPw = await currentMasterPw();
     if (curPw) await takeSnapshot('İçe aktarma öncesi', true);
     S = normalize(data);
@@ -1635,7 +1644,7 @@ $('bkHist').addEventListener('click', async e=>{
   const b = e.target.closest('button'); if (!b) return;
   const ts = +b.dataset.ts;
   if (b.dataset.act==='hrest') {
-    if (confirm(stamp(ts)+' tarihli yedek geri yüklensin mi?')) await restoreSnapshot(ts);
+    if ((await askYes(stamp(ts)+' tarihli yedek geri yüklensin mi?'))) await restoreSnapshot(ts);
   } else if (b.dataset.act==='hdl') {
     const rec = await idbDo('hist','readonly', s=>s.get(ts));
     if (rec) downloadText('urun-takip-yedek-'+dstr(new Date(ts))+'-'+hhmm(ts).replace(':','')+'.json', rec.data);
@@ -1670,6 +1679,17 @@ $('bkUnlink').onclick = async () => {
   updateStat(); renderBackupPage();
 };
 
+function askYes(msg) {   // tarayıcı onay penceresi yerine sayfa içi onay (Firefox "diyalogları engelle" seçilse de çalışır)
+  if (window.__autoYes !== undefined) return Promise.resolve(!!window.__autoYes);
+  return new Promise(resolve => {
+    $('ynMsg').textContent = msg; $('ynModal').classList.remove('hide');
+    const done = v => { $('ynModal').classList.add('hide'); document.removeEventListener('keydown', key, true); resolve(v); };
+    const key = e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); } };
+    document.addEventListener('keydown', key, true);
+    $('ynOk').onclick = () => done(true); $('ynNo').onclick = () => done(false);
+    setTimeout(() => $('ynOk').focus(), 30);
+  });
+}
 function askPassword(title, desc, noVerify) {
   return new Promise(resolve => {
     $('pwTitle').textContent = title || 'Şifre';
@@ -1835,7 +1855,7 @@ function renderStocks() {
       </td></tr>`;
   }).join('');
 }
-$('stockBody').onclick = e => {
+$('stockBody').onclick = async e => {
   const b = e.target.closest('button'); if (!b) return;
   const s = stockById(b.dataset.id); if (!s) return;
   if (b.dataset.act==='arr') {
@@ -1862,7 +1882,7 @@ $('stockBody').onclick = e => {
     window.scrollTo({top:0,behavior:'smooth'});
   } else if (b.dataset.act==='del') {
     const n = S.products.filter(p=>p.stockId===s.id).length;
-    if (confirm(label(s)+' silinsin mi?'+(n?'\n'+n+' ürün kodu bağlantılı.':''))) {
+    if ((await askYes(label(s)+' silinsin mi?'+(n?'\n'+n+' ürün kodu bağlantılı.':'')))) {
       const info = label(s);
       S.products.forEach(p=>{ if (p.stockId===s.id) p.stockId=''; });
       S.stocks = S.stocks.filter(x=>x.id!==s.id);
@@ -1931,22 +1951,22 @@ $('prodBody').addEventListener('change', e=>{
   const tr = e.target.closest('tr[data-id]'); if (!tr || e.target.dataset.f!=='stock') return;
   prodById(tr.dataset.id).stockId = e.target.value; afterChange(); renderProducts();
 });
-$('prodBody').addEventListener('click', e=>{
+$('prodBody').addEventListener('click', async e=>{
   const b = e.target.closest('button'); if (!b) return;
   const p = prodById(b.closest('tr[data-id]').dataset.id); if (!p) return;
-  if (confirm(p.code+' ürün kodu silinsin mi?')) {
+  if ((await askYes(p.code+' ürün kodu silinsin mi?'))) {
     logAction('ürün_sil', p.code);
     S.products = S.products.filter(x=>x!==p);
     save(); renderAll(); initAlarmed();
   }
 });
-$('pAdd').onclick = () => {
+$('pAdd').onclick = async () => {
   const code = $('pCode').value.trim(), sid = $('pStock').value, raw = num($('pRaw').value);
   if (!code) { alert('Ürün kodu gir.'); return; }
   if (prodByCode(code)) { alert('Bu kod zaten var.'); return; }
   const s = sid ? stockById(sid) : null;
   const bar = !!(s && !isCountS(s));
-  if (bar && raw>s.l && !confirm('Ham boy çubuk boyundan uzun, eklensin mi?')) return;
+  if (bar && raw>s.l && !(await askYes('Ham boy çubuk boyundan uzun, eklensin mi?'))) return;
   const maxTxt = $('pMax').value.trim(), kerfTxt = $('pKerf').value.trim();
   const procTxt = $('pProcSec').value.trim();
   const maxLen = maxTxt===''?null:Math.max(0,num(maxTxt));
@@ -1972,12 +1992,12 @@ function renderMachines() {
     </tr>`;
   }).join('');
 }
-$('machineBody').onclick = e => {
+$('machineBody').onclick = async e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.act==='mcdel') {
     const name = b.dataset.name;
     const inUse = S.entries.filter(e => !isBlank(e) && e.machine === name).length;
-    if (inUse && !confirm(name + ' makinesini kullanan ' + inUse + ' kayıt var. Yine de silinsin mi? (Kayıtlardaki makine adı kalır)')) return;
+    if (inUse && !(await askYes(name + ' makinesini kullanan ' + inUse + ' kayıt var. Yine de silinsin mi? (Kayıtlardaki makine adı kalır)'))) return;
     S.machines = S.machines.filter(x => x !== name);
     logAction('makine_sil', name);
     save(); renderMachines(); updateMachineDatalist();
@@ -2012,7 +2032,7 @@ function renderMaterials() {
     </tr>`;
   }).join('');
 }
-$('matBody').addEventListener('click', e=>{
+$('matBody').addEventListener('click', async e=>{
   const b = e.target.closest('button'); if (!b) return;
   const m = S.materials.find(x=>x.id===b.closest('tr').dataset.id); if (!m) return;
   if (b.dataset.act==='medit') {
@@ -2023,7 +2043,7 @@ $('matBody').addEventListener('click', e=>{
     window.scrollTo({top:0,behavior:'smooth'});
   } else if (b.dataset.act==='mdel') {
     const cnt = S.stocks.filter(s=>s.matId===m.id).length;
-    if (confirm('"'+m.name+'" silinsin mi?'+(cnt?'\n'+cnt+' stok genel yoğunluk kullanır.':''))) {
+    if ((await askYes('"'+m.name+'" silinsin mi?'+(cnt?'\n'+cnt+' stok genel yoğunluk kullanır.':'')))) {
       const nm = m.name;
       S.stocks.forEach(s=>{ if (s.matId===m.id) s.matId=''; });
       S.materials = S.materials.filter(x=>x.id!==m.id);
@@ -2045,7 +2065,7 @@ $('mAdd').onclick = async () => {
     const m = matById(matEditId);
     if (m && !!m.countOnly !== cnt) {
       const n0 = S.stocks.filter(s=>s.matId===m.id).length;
-      if (n0 && !confirm('Bu malzemeyi kullanan ' + n0 + ' stok var. ' + (cnt ? 'Bu stoklar için çubuk/kg hesabı kapatılacak, yalnızca adet izlenecek.' : 'Bu stoklar çubuk olarak hesaplanacak; çap ve boy bilgisi eksikse sıfır görünür.') + ' Devam edilsin mi?')) return;
+      if (n0 && !(await askYes('Bu malzemeyi kullanan ' + n0 + ' stok var. ' + (cnt ? 'Bu stoklar için çubuk/kg hesabı kapatılacak, yalnızca adet izlenecek.' : 'Bu stoklar çubuk olarak hesaplanacak; çap ve boy bilgisi eksikse sıfır görünür.') + ' Devam edilsin mi?'))) return;
     }
     if (m && !cnt && (m.name !== name || Math.abs(m.dens - dens) > 1e-9)) {
       const n = S.stocks.filter(s=>s.matId===m.id).length;
@@ -2093,12 +2113,12 @@ function renderShiftPatterns() {
     </tr>`;
   }).join('');
 }
-$('shiftPatternBody').addEventListener('click', e => {
+$('shiftPatternBody').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.act==='vpdel') {
     const sh = S.shiftPatterns.find(x=>x.id===b.dataset.sid); if (!sh) return;
     const inUse = S.entries.filter(en => en.shift === sh.name && !isBlank(en)).length;
-    if (inUse && !confirm(sh.name+' vardiyasını kullanan '+inUse+' üretim kaydı var. Yine de silinsin mi?')) return;
+    if (inUse && !(await askYes(sh.name+' vardiyasını kullanan '+inUse+' üretim kaydı var. Yine de silinsin mi?'))) return;
     logAction('vardiya_sil', sh.name);
     S.shiftPatterns = S.shiftPatterns.filter(x=>x.id!==sh.id);
     save(); renderShiftPatterns(); updateShiftList(); updateFilterLists(); applyYieldVisibility();
@@ -2164,7 +2184,7 @@ function renderShiftTeams() {
     </div>`;
   }).join('');
 }
-$('teamList').addEventListener('click', e => {
+$('teamList').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   const tid = b.dataset.tid;
   const team = S.shiftTeams.find(x => x.id === tid);
@@ -2186,7 +2206,7 @@ $('teamList').addEventListener('click', e => {
     save(); renderShiftTeams(); updateTeamDatalist(); updateOpListGlobal(); updateFilterLists();
   } else if (b.dataset.act === 'teamdel') {
     const inUse = S.entries.filter(e => !isBlank(e) && e.team === team.name).length;
-    if (inUse && !confirm(team.name + ' vardiyasını kullanan ' + inUse + ' üretim kaydı var. Vardiya silinsin mi?')) return;
+    if (inUse && !(await askYes(team.name + ' vardiyasını kullanan ' + inUse + ' üretim kaydı var. Vardiya silinsin mi?'))) return;
     logAction('vardiya_sil', team.name);
     S.shiftTeams = S.shiftTeams.filter(x => x.id !== tid);
     save(); renderShiftTeams(); updateTeamDatalist(); updateOpListGlobal(); updateFilterLists();
@@ -2243,18 +2263,18 @@ $('usersBody').addEventListener('click', async e=>{
     u.pw = await hashPass(p1); persistUsers(); renderUsers();
     logAction('kullanıcı_ekle', u.username + ' şifresi değiştirildi'); logAct('Kullanıcı', u.username + ' şifresi değiştirildi'); toast('Şifre kaydedildi.');
   } else if (b.dataset.act==='upwdel') {
-    if (!confirm(u.username + ' şifresiz girebilsin mi?')) return;
+    if (!(await askYes(u.username + ' şifresiz girebilsin mi?'))) return;
     delete u.pw; persistUsers(); renderUsers();
     logAction('kullanıcı_ekle', u.username + ' şifresi kaldırıldı'); logAct('Kullanıcı', u.username + ' şifresi kaldırıldı'); toast('Şifre kaldırıldı.');
   } else if (b.dataset.act==='urole') {
     if (u.role==='admin') {
       if (USERS.users.filter(x=>x.role==='admin').length<=1) { alert('En az bir yönetici kalmalı.'); return; }
-      if (!confirm(u.username+' normal kullanıcıya düşürülsün mü?')) return;
+      if (!(await askYes(u.username+' normal kullanıcıya düşürülsün mü?'))) return;
       u.role = 'user';
       logAction('rol_değiştir', u.username + ' → Normal');
       logAct('Kullanıcı', u.username+' → normal kullanıcı yapıldı');
     } else {
-      if (!confirm(u.username+' yönetici yapılsın mı?')) return;
+      if (!(await askYes(u.username+' yönetici yapılsın mı?'))) return;
       u.role = 'admin';
       logAction('rol_değiştir', u.username + ' → Yönetici');
       logAct('Kullanıcı', u.username+' → yönetici yapıldı');
@@ -2264,7 +2284,7 @@ $('usersBody').addEventListener('click', async e=>{
   } else if (b.dataset.act==='udel') {
     if (u.id===currentUser.id) return;
     if (u.role==='admin' && USERS.users.filter(x=>x.role==='admin').length<=1) { alert('Son yönetici silinemez.'); return; }
-    if (!confirm(u.username+' silinsin mi?')) return;
+    if (!(await askYes(u.username+' silinsin mi?'))) return;
     logAction('kullanıcı_sil', u.username);
     USERS.users = USERS.users.filter(x=>x.id!==u.id);
     persistUsers();
@@ -2351,8 +2371,8 @@ $('auditExport').onclick = () => {
   });
   downloadText('hareket-dokumu-'+today()+'.csv', '\uFEFF' + lines.join('\r\n'), 'text/csv;charset=utf-8');
 };
-$('auditClear').onclick = () => {
-  if (!confirm('Tüm hareket dökümü silinsin mi? Bu işlem geri alınamaz.')) return;
+$('auditClear').onclick = async () => {
+  if (!(await askYes('Tüm hareket dökümü silinsin mi? Bu işlem geri alınamaz.'))) return;
   saveAudit([]); AUD_Q = []; saveAudQ();
   if (CLOUD_MODE && MF.h === cloudHandle) fbReq('PUT', 'denetim', null).catch(() => {});
   renderAudit();
@@ -3001,7 +3021,7 @@ body.addEventListener('paste', e=>{
   save(); renderAll(); initAlarmed();
   logAction('üretim_kaydet', lines.length + ' satır yapıştırıldı');
 });
-body.addEventListener('click', e=>{
+body.addEventListener('click', async e=>{
   const ci = e.target.closest('input[data-f=code]');
   if (ci && menuInp!==ci) { openMenu(ci, true); return; }
   const cal = e.target.closest('button[data-act=cal]');
@@ -3015,7 +3035,7 @@ body.addEventListener('click', e=>{
   const id = b.closest('tr').dataset.id;
   const i = S.entries.findIndex(x=>x.id===id);
   if (i<0) return;
-  if (!isBlank(S.entries[i]) && !confirm('Satır silinsin mi?')) return;
+  if (!isBlank(S.entries[i]) && !(await askYes('Satır silinsin mi?'))) return;
   const e2 = S.entries[i];
   if (!isBlank(e2)) logAction('üretim_sil', (e2.machine?e2.machine+' · ':'') + (e2.code||'-') + ' — ' + fmt(e2.qty||0) + ' adet');
   S.entries.splice(i, 1);
@@ -3556,7 +3576,7 @@ async function loginAs(uid) {
 }
 
 $('logoutBtn').onclick = async () => {
-  if (!confirm('Çıkış yapılsın mı?')) return;
+  if (!(await askYes('Çıkış yapılsın mı?'))) return;
   logAction('çıkış', 'Oturum kapatıldı');
   clearTimeout(syncT); syncTick();
   try { await Promise.race([(async()=>{ await flushOutbox(); await logAct('Oturum','Çıkış yaptı'); })(), sleep(1500)]); } catch(e) {}
@@ -3678,9 +3698,9 @@ function copySel() {
   const ids = selIdsOrdered(); if (!ids.length) return false;
   rowClip = rowsToTsv(ids); return rowClip;
 }
-function deleteRows(ids, ask) {
+async function deleteRows(ids, ask) {
   if (!ids.length) return;
-  if (ask && !confirm(ids.length + ' satır silinsin mi?')) return;
+  if (ask && !(await askYes(ids.length + ' satır silinsin mi?'))) return;
   const set = new Set(ids);
   S.entries = S.entries.filter(e => !set.has(e.id));
   selIds.clear(); ensureSpare(25);
@@ -3841,11 +3861,11 @@ body.addEventListener('mousedown', e => {
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   applySel(); setTimeout(() => $('bulkVal').focus(), 0);
 }, true);
-$('bulkApply').onclick = () => {
+$('bulkApply').onclick = async () => {
   const f = $('bulkField').value, v = $('bulkVal').value;
   const list = S.entries.filter(e => selIds.has(e.id));
   if (!list.length) { toast('Önce satır/hücre seç.'); return; }
-  if (v.trim() === '' && f !== 'note' && !confirm(list.length + ' satırın "' + $('bulkField').selectedOptions[0].text + '" alanı boşaltılsın mı?')) return;
+  if (v.trim() === '' && f !== 'note' && !(await askYes(list.length + ' satırın "' + $('bulkField').selectedOptions[0].text + '" alanı boşaltılsın mı?'))) return;
   let bad = 0;
   list.forEach(en => {
     let val = v;
@@ -4047,7 +4067,7 @@ async function mfOpenWith(h) {
   await mfAttach(h, raw, obj.wrap);
   let payload;
   try { payload = await mfUnpack(obj); } catch(e) { await mfDetach(); alert('Dosya bozuk.'); return false; }
-  if (!confirm('Bu bilgisayardaki veriler, dosyadaki verilerle değiştirilsin mi?\n(Mevcut veriler önce geçmiş yedeğe alınır.)')) { await mfDetach(); return false; }
+  if (!(await askYes('Bu bilgisayardaki veriler, dosyadaki verilerle değiştirilsin mi?\n(Mevcut veriler önce geçmiş yedeğe alınır.)'))) { await mfDetach(); return false; }
   try { await takeSnapshot('Veri dosyası açılmadan önce', true); } catch(e) {}
   await mfLoadPayload(payload);
   MF.mod = f.lastModified;
@@ -4183,7 +4203,7 @@ function fileGate() {
       } catch(e) { msg('Dosya bozuk: ' + (e.message || e)); }
     };
     $('fgNew').onclick = async () => {
-      if (localStorage.getItem(USERS_KEY) && !confirm('Bu tarayıcıda eski veri var. Yeni dosya oluşturursanız bu eski veri kullanılmaz (yedeğini aldıysanız sorun yok). Devam edilsin mi?')) return;
+      if (localStorage.getItem(USERS_KEY) && !(await askYes('Bu tarayıcıda eski veri var. Yeni dosya oluşturursanız bu eski veri kullanılmaz (yedeğini aldıysanız sorun yok). Devam edilsin mi?'))) return;
       resolve('new');
     };
     $('fgLocal').onclick = () => resolve('local');
@@ -4891,7 +4911,7 @@ async function loadServerInfo() {
   } catch (e) {}
 }
 $('srvStop').onclick = async () => {
-  if (!confirm('Sunucu kapatılsın mı? Diğer bilgisayarların bağlantısı kopar.')) return;
+  if (!(await askYes('Sunucu kapatılsın mı? Diğer bilgisayarların bağlantısı kopar.'))) return;
   clearTimeout(syncT); syncTick();
   try { await Promise.race([(async () => { await flushOutbox(); await logAct('Oturum', 'Sunucu kapatıldı'); })(), sleep(1500)]); } catch (e) {}
   try { await post('/api/shutdown', {}); } catch (e) {}
@@ -4969,7 +4989,7 @@ $('hrCsv').onclick = () => {
 $('hrClear').onclick = async () => {
   const pw = await askPassword('Hareketleri sıfırla', 'Tüm hareket dökümü kalıcı olarak silinecek. Ana şifreyi girin.');
   if (!pw) return;
-  if (!confirm('Tüm hareket kayıtları silinsin mi? Bu işlem geri alınamaz.')) return;
+  if (!(await askYes('Tüm hareket kayıtları silinsin mi? Bu işlem geri alınamaz.'))) return;
   if (SERVER) {
     try { await post('/api/log/clear', {cid: CID, user: uname()}); } catch (e) { alert('Sıfırlanamadı: ' + e.message); return; }
   } else {
