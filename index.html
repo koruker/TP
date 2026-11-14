@@ -297,6 +297,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
     <h2>Veri Dosyası</h2>
     <div class="hint" style="margin-top:0">Veriler tarayıcıda değil, seçeceğiniz <b>veri dosyasında</b> (.json) tutulur. Başlamak için dosyayı seçin; hangi bilgisayarda açarsanız açın veriler dosyadan gelir.</div>
     <div id="fgMsg" class="warnTxt" style="margin:8px 0"></div>
+    <div id="fgGoogleBox" class="hide" style="margin:8px 0"><div id="fgGoogleBtn"></div></div>
     <div class="row" style="flex-direction:column;align-items:stretch;gap:8px;margin-top:8px">
       <button class="btn hide" id="fgResume"></button>
       <button class="btn" id="fgOpen">📂 Mevcut veri dosyasını aç</button>
@@ -762,6 +763,16 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
     </div>
 
     <div id="subtab-yedek" class="hide">
+      <div class="card admin-only">
+        <h2>🔑 Anahtar dosyası</h2>
+        <div class="hint" style="margin-top:0">Veritabanına yalnızca <b>anahtar dosyası</b> ile bağlanılır. Bu sayfayı (GitHub) herkes açabilir ama anahtar olmadan veriye erişemez. Anahtar dosyasını sadece fabrika bilgisayarlarına verin; tarayıcıda bir kez açmanız yeter, her seferinde bir şey sorulmaz. Anahtar dosyasını başkasıyla paylaşmayın.</div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px">
+          <div><label>Firebase hesabı (e-posta)</label><input id="akMail" placeholder="uretim@tp.com" autocomplete="off"></div>
+          <div><label>Firebase hesabı şifresi</label><input id="akPw" type="password" autocomplete="new-password"></div>
+        </div>
+        <div class="row"><button class="btn" id="akBuild">🔑 Anahtar dosyasını indir (Uretim-Takip.html)</button></div>
+        <div id="akMsg" class="hint"></div>
+      </div>
       <div class="card">
         <h2>Otomatik Yedek</h2>
         <div class="bkrow"><div>Tarayıcı</div><div id="bkBrowser"></div></div>
@@ -4312,7 +4323,7 @@ function fileGate() {
 /* ====== Bulut (Firebase) modu ======
    Veri, ana şifreyle şifrelenmiş tek kayıt olarak Firebase Realtime Database'e yazılır (dosya modunun aynısı, yalnızca depolama bulutta).
    Giriş: Firebase hesabının şifresi = ana şifre. Bu bilgisayarda şifre bir kez sorulur, sonra yenileme anahtarıyla sessiz bağlanılır. */
-const FB_CONFIG = Object.assign({apiKey: 'AIzaSyCWXR0GfxikIo6KbBhhLbNRje0HQrvxdFk', databaseURL: 'https://tp-uretim-default-rtdb.europe-west1.firebasedatabase.app', email: 'uretim@tp.com', path: 'uretim-takip', authBase: 'https://identitytoolkit.googleapis.com', tokenBase: 'https://securetoken.googleapis.com'},
+const FB_CONFIG = Object.assign({apiKey: 'AIzaSyCWXR0GfxikIo6KbBhhLbNRje0HQrvxdFk', databaseURL: 'https://tp-uretim-default-rtdb.europe-west1.firebasedatabase.app', email: 'uretim@tp.com', googleClientId: '', path: 'uretim-takip', authBase: 'https://identitytoolkit.googleapis.com', tokenBase: 'https://securetoken.googleapis.com'},
   window.__FB_TEST || {}, (() => { try { return JSON.parse(localStorage.getItem('urunTakip_fb') || 'null') || {}; } catch(e) { return {}; } })());
 const CLOUD_ON = () => !!(FB_CONFIG.apiKey && FB_CONFIG.databaseURL && FB_CONFIG.email) && !window.__skipCloud;
 let CLOUD_MODE = false;
@@ -4327,6 +4338,52 @@ function cloudTake(j) {
   CLOUD.tok = j.idToken || j.id_token; CLOUD.refresh = j.refreshToken || j.refresh_token;
   CLOUD.exp = Date.now() + (+(j.expiresIn || j.expires_in) || 3600) * 1000;
 }
+const ANAHTAR = (() => { try { return window.__ANAHTAR ? JSON.parse(decodeURIComponent(escape(atob(window.__ANAHTAR)))) : null; } catch(e) { return null; } })();
+async function cloudKeySignIn() {
+  cloudTake(await fbPost(FB_CONFIG.authBase + '/v1/accounts:signInWithPassword?key=' + encodeURIComponent(FB_CONFIG.apiKey), {email: ANAHTAR.e, password: ANAHTAR.p, returnSecureToken: true}));
+  try { await idbDo('meta', 'readwrite', s => s.put(CLOUD.refresh, 'fbr')); } catch(e) {}
+}
+const GOOGLE_ON = () => !!FB_CONFIG.googleClientId;
+$('akBuild').onclick = async () => {
+  const mail = $('akMail').value.trim() || FB_CONFIG.email, pw = $('akPw').value;
+  if (!mail || !pw) { $('akMsg').textContent = 'E-posta ve şifreyi girin.'; return; }
+  $('akMsg').textContent = 'Kontrol ediliyor…';
+  try {   // önce bu hesapla gerçekten girilebiliyor mu
+    await fbPost(FB_CONFIG.authBase + '/v1/accounts:signInWithPassword?key=' + encodeURIComponent(FB_CONFIG.apiKey), {email: mail, password: pw, returnSecureToken: true});
+  } catch(e) { $('akMsg').textContent = e.fb ? 'Bu e-posta/şifre ile Firebase girişi yapılamadı (' + e.message + ').' : 'İnternet bağlantısı kurulamadı.'; return; }
+  let src;
+  try { const r = await fetch(location.href.split('#')[0], {cache: 'no-store'}); if (!r.ok) throw 0; src = await r.text(); }
+  catch(e) { $('akMsg').textContent = 'Sayfa kaynağı okunamadı. Anahtar dosyasını GitHub adresinden (https://…) açılan sayfada oluşturun.'; return; }
+  src = src.replace(/<script>window\.__ANAHTAR=[^<]*<\/script>\s*/, '');
+  const tok = btoa(unescape(encodeURIComponent(JSON.stringify({e: mail, p: pw}))));
+  const i = src.indexOf('</head>'); if (i < 0) { $('akMsg').textContent = 'Sayfa biçimi tanınmadı.'; return; }
+  src = src.slice(0, i) + '<script>window.__ANAHTAR="' + tok + '";<\/script>\n' + src.slice(i);
+  downloadText('Uretim-Takip.html', src, 'text/html;charset=utf-8');
+  $('akPw').value = ''; $('akMsg').textContent = 'Anahtar dosyası indirildi. Bunu fabrika bilgisayarlarına kopyalayıp açın; GitHub sayfasına yüklemeyin.';
+  logAction('ayar_değiştir', 'Anahtar dosyası oluşturuldu');
+};
+function loadGis() {
+  return new Promise((res, rej) => {
+    if (window.google && google.accounts && google.accounts.id) return res();
+    const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+    sc.onload = () => res(); sc.onerror = () => rej(new Error('Google giriş betiği yüklenemedi (internet bağlantısını kontrol edin).'));
+    document.head.appendChild(sc);
+  });
+}
+function googleLogin(msg) {   // bu tarayıcıda bir kez Google ile giriş; sonrasında yenileme anahtarıyla sessiz bağlanır
+  return new Promise(async (resolve, reject) => {
+    if (window.__gisCredential) return resolve(window.__gisCredential);
+    msg('Bu bilgisayarda bir kez Google ile giriş yapın.');
+    try { await loadGis(); } catch(e) { reject(e); return; }
+    $('fgGoogleBox').classList.remove('hide');
+    google.accounts.id.initialize({client_id: FB_CONFIG.googleClientId, auto_select: false, callback: r => { $('fgGoogleBox').classList.add('hide'); msg(''); resolve(r.credential); }});
+    google.accounts.id.renderButton($('fgGoogleBtn'), {theme: 'outline', size: 'large', text: 'signin_with', locale: 'tr'});
+  });
+}
+async function cloudGoogle(cred) {
+  cloudTake(await fbPost(FB_CONFIG.authBase + '/v1/accounts:signInWithIdp?key=' + encodeURIComponent(FB_CONFIG.apiKey), {postBody: 'id_token=' + cred + '&providerId=google.com', requestUri: location.origin, returnIdpCredential: true, returnSecureToken: true}));
+  try { await idbDo('meta', 'readwrite', s => s.put(CLOUD.refresh, 'fbr')); } catch(e) {}
+}
 async function cloudAnon() {   // şifresiz (anonim) bağlantı: giriş yalnızca uygulamanın kendi kullanıcı adı/parolasıyla
   cloudTake(await fbPost(FB_CONFIG.authBase + '/v1/accounts:signUp?key=' + encodeURIComponent(FB_CONFIG.apiKey), {returnSecureToken: true}));
   try { await idbDo('meta', 'readwrite', s => s.put(CLOUD.refresh, 'fbr')); } catch(e) {}
@@ -4339,7 +4396,12 @@ async function cloudToken() {
   if (CLOUD.tok && Date.now() < CLOUD.exp - 60000) return CLOUD.tok;
   if (!CLOUD.refresh) throw new Error('Bulut oturumu yok');
   try { await cloudRefresh(CLOUD.refresh); }
-  catch(e) { if (e.fb) await cloudAnon(); else throw e; }
+  catch(e) {
+    if (!e.fb) throw e;
+    if (ANAHTAR) { await cloudKeySignIn(); return CLOUD.tok; }
+    if (GOOGLE_ON()) { try { await idbDo('meta', 'readwrite', s => s.delete('fbr')); } catch(x) {} notify('Google oturumunuz sona erdi. Sayfa yenilenip yeniden giriş istenecek.').then(() => location.reload()); throw e; }
+    await cloudAnon();
+  }
   return CLOUD.tok;
 }
 /* ---- Bulut veri yapısı (ay ay, düz metin) ----
@@ -4536,11 +4598,13 @@ function cloudGate() {
     $('fgLocal').classList.toggle('hide', !localStorage.getItem(USERS_KEY));
     const attempt = async pw => {
       try {
-        const rt = await idbDo('meta', 'readonly', s => s.get('fbr')).catch(() => null);
-        if (rt) { try { await cloudRefresh(rt); } catch(e) { if (e.fb) await cloudAnon(); else throw e; } }
-        else await cloudAnon();
+        const rt = ANAHTAR ? null : await idbDo('meta', 'readonly', s => s.get('fbr')).catch(() => null);
+        let signed = false;
+        if (rt) { try { await cloudRefresh(rt); signed = true; } catch(e) { if (!e.fb) throw e; } }
+        if (!signed) { if (ANAHTAR) await cloudKeySignIn(); else if (GOOGLE_ON()) await cloudGoogle(await googleLogin(msg)); else await cloudAnon(); }
       } catch(e) {
-        if (e.fb) { msg('Firebase hatası: ' + e.message + (/OPERATION_NOT_ALLOWED|ADMIN_ONLY/.test(e.message) ? ' — Firebase konsolunda Authentication → Sign-in method → Anonymous seçeneğini etkinleştirin.' : '')); return 'net'; }
+        if (/^Google/.test(e.message || '')) { msg(e.message); return 'net'; }
+        if (e.fb) { msg(ANAHTAR ? 'Anahtar dosyası geçersiz (' + e.message + '). Yönetici yeni anahtar dosyası oluşturmalı.' : /OPERATION_NOT_ALLOWED|ADMIN_ONLY/.test(e.message) ? 'Bu sayfa tek başına veriye bağlanamaz. Anahtar dosyası (Uretim-Takip.html) ile açın.' : 'Firebase hatası: ' + e.message); return 'net'; }
         msg('İnternet bağlantısı kurulamadı.'); return 'net';
       }
       try {
@@ -4585,7 +4649,11 @@ function cloudGate() {
           await cloudSaveBase();
         }
         MF.h = cloudHandle; MF.state = 'ok'; return 'loaded';
-      } catch(e) { msg(e.status ? 'Bulut okunamadı (HTTP ' + e.status + '). Veritabanı kurallarını kontrol edin.' : 'İnternet bağlantısı kurulamadı.'); return 'net'; }
+      } catch(e) {
+        if ((e.status === 401 || e.status === 403) && !ANAHTAR && !GOOGLE_ON()) { try { await idbDo('meta', 'readwrite', s => s.delete('fbr')); } catch(x) {} msg('Bu sayfa tek başına veriye bağlanamaz. Anahtar dosyası (Uretim-Takip.html) ile açın.'); return 'net'; }
+        if ((e.status === 401 || e.status === 403) && GOOGLE_ON()) { try { await idbDo('meta', 'readwrite', s => s.delete('fbr')); } catch(x) {} msg('Bu Google hesabının veriye erişim izni yok (Firebase kurallarındaki izinli e-posta listesini kontrol edin). Sayfayı yenileyip başka hesapla deneyin.'); return 'net'; }
+        msg(e.status ? 'Bulut okunamadı (HTTP ' + e.status + '). Veritabanı kurallarını kontrol edin.' : 'İnternet bağlantısı kurulamadı.'); return 'net';
+      }
     };
     const run = async () => {
       msg(''); let r = await attempt(null);
