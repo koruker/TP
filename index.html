@@ -1414,7 +1414,7 @@ function entById(id) {
 const prodUsable = (s,p) => { if(!s||!p) return 0; return (p.maxLen!=null&&p.maxLen>0)?Math.min(p.maxLen, s.l):s.l; };
 const prodKerf = p => (p&&p.kerf!=null) ? p.kerf : (S.settings.kerf||0);
 const partsPer = (s,p) => {
-  if (!s || !p || p.raw<=0 || isCountS(s)) return 0;
+  if (!s || !p || !(p.raw>0) || isCountS(s)) return 0;
   const usable = prodUsable(s,p), k = prodKerf(p), per = p.raw+k;
   if (per<=0) return 0;
   const custom = (p.maxLen!=null || p.kerf!=null);
@@ -4477,14 +4477,18 @@ function cloudFlatten(part, obj) {
 }
 const CS = {last: new Map(), stamps: {genel: 0, aylar: {}}, busy: false, again: false, legacy: false};
 const fbBase = () => FB_CONFIG.databaseURL.replace(/\/$/, '') + '/' + FB_CONFIG.path;
-async function fbReq(method, rel, body, q) {
+async function fbReq(method, rel, body, q, retried) {
   const url = fbBase() + (rel ? '/' + rel : '') + '.json?auth=' + encodeURIComponent(await cloudToken()) + (q ? '&' + q : '');
   const r = await fetch(url, {method, cache: 'no-store', headers: body !== undefined ? {'Content-Type': 'application/json'} : undefined, body: body !== undefined ? JSON.stringify(body) : undefined});
+  if (r.status === 401 && !retried) { CLOUD.exp = 0; return fbReq(method, rel, body, q, true); }   // sunucu tarafında geçersizleşen belirteç: yenileyip bir kez daha dene
   if (!r.ok) { const e = new Error('Bulut hatası (HTTP ' + r.status + ')'); e.status = r.status; throw e; }
   return method === 'GET' ? r.json() : null;
 }
 const fbGet = (rel, q) => fbReq('GET', rel, undefined, q);
 async function cloudSaveBase() { try { await idbDo('meta', 'readwrite', s => s.put({last: [...CS.last], stamps: CS.stamps}, 'fbb')); } catch(e) {} }
+function cloudNormUnits(units) {   // uzak veriyi uygulamanın normalleştirmesinden geçirip karşılaştırma tabanı yap (normalizasyon farkı "yerel değişiklik" sayılmasın)
+  try { const p = cloudFromUnits(units); return cloudToUnits(normalize(JSON.parse(JSON.stringify(p.data))), p.users); } catch(e) { return units; }
+}
 async function cloudFetchChanged(meta) {
   const rS = {genel: (meta && meta.genel) || 0, aylar: (meta && meta.aylar) || {}}, changed = [];
   if (rS.genel !== (CS.stamps.genel || 0)) changed.push('genel');
@@ -4498,7 +4502,7 @@ async function cloudFetchChanged(meta) {
       grp.forEach((pt, j) => cloudFlatten(pt, res[j]).forEach((s, p) => RB.set(p, s)));
     }
   }
-  return {RB, rS, changed};
+  return {RB: changed.length ? cloudNormUnits(RB) : RB, rS, changed};
 }
 async function cloudSyncOnce() {
   const at0 = lsNum(LOCAL_AT_KEY), dirty = lsNum(DIRTY_KEY) === 1;
