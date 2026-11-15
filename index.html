@@ -292,6 +292,20 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
 </head>
 <body>
 
+<div id="lockScreen" class="screen hide">
+  <div class="card" style="max-width:520px;margin:10vh auto;text-align:center">
+    <h2>🔒 Üretim Takip</h2>
+    <p><b>Üretim Takip dosyası ile giriş yapın.</b></p>
+    <p class="hint">Bu sayfa anahtar dosyası olmadan açılmaz. Size verilen <code>Uretim-Takip.html</code> dosyasını bu bilgisayarda bir kez açın; sonra bu sayfa kendiliğinden devam eder.</p>
+    <details style="margin-top:22px;text-align:left"><summary class="hint" style="cursor:pointer">Yönetici: anahtar dosyası oluştur</summary>
+      <label>Firebase hesabı (e-posta)</label><input id="lkMail" autocomplete="off">
+      <label>Firebase hesabı şifresi</label><input id="lkPw" type="password" autocomplete="new-password">
+      <label>Kurtarma kodu (ilk kez oluşturuyorsanız boş bırakın)</label><input id="lkRc" autocomplete="off">
+      <div class="row"><button class="btn" id="lkGo">Anahtar dosyasını indir</button></div>
+      <div id="lkMsg" class="hint" style="word-break:break-all"></div>
+    </details>
+  </div>
+</div>
 <div id="fileScreen" class="screen hide">
   <div class="card">
     <h2>Veri Dosyası</h2>
@@ -763,15 +777,10 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
     </div>
 
     <div id="subtab-yedek" class="hide">
-      <div class="card admin-only">
-        <h2>🔑 Anahtar dosyası</h2>
-        <div class="hint" style="margin-top:0">Veritabanına yalnızca <b>anahtar dosyası</b> ile bağlanılır. Bu sayfayı (GitHub) herkes açabilir ama anahtar olmadan veriye erişemez. Anahtar dosyasını sadece fabrika bilgisayarlarına verin; tarayıcıda bir kez açmanız yeter, her seferinde bir şey sorulmaz. Anahtar dosyasını başkasıyla paylaşmayın.</div>
-        <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px">
-          <div><label>Firebase hesabı (e-posta)</label><input id="akMail" placeholder="uretim@tp.com" autocomplete="off"></div>
-          <div><label>Firebase hesabı şifresi</label><input id="akPw" type="password" autocomplete="new-password"></div>
-        </div>
-        <div class="row"><button class="btn" id="akBuild">🔑 Anahtar dosyasını indir (Uretim-Takip.html)</button></div>
-        <div id="akMsg" class="hint"></div>
+      <div class="card admin-only" id="akCard">
+        <h2>🔑 Bu bilgisayar</h2>
+        <div class="hint" style="margin-top:0">Ortak veya başkasına ait bir bilgisayarda işiniz bitince anahtarı ve yerel veri kopyasını silin. Tekrar girmek için anahtar dosyası gerekir.</div>
+        <div class="row"><button class="btn sec" id="akOut">🔑 Bu bilgisayardan çık (anahtarı sil)</button></div>
       </div>
       <div class="card">
         <h2>Otomatik Yedek</h2>
@@ -1479,6 +1488,8 @@ function toast(msg) {
   $('alarms').appendChild(d);
   setTimeout(()=>d.remove(), 5000);
 }
+const stampShort = t => { if (!t) return '—'; const d = new Date(t), p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '.' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); };
+const stampLong = t => { if (!t) return '—'; const d = new Date(t), p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); };
 const hhmm = t => t ? new Date(t).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}) : '—';
 const stamp = t => trDate(dstr(new Date(t)))+' '+hhmm(t);
 
@@ -3596,7 +3607,7 @@ function renderAll() {
 }
 
 function showScreen(id) {
-  ['fileScreen','setupScreen','loginScreen','app'].forEach(x=>$(x).classList.toggle('hide', x!==id));
+  ['lockScreen','fileScreen','setupScreen','loginScreen','app'].forEach(x=>$(x).classList.toggle('hide', x!==id));
 }
 
 $('setupDl').onclick = () => { SETUP_DL = true; $('setupBtn').click(); };
@@ -4142,8 +4153,9 @@ function mfUI() {
     else {
       chip.classList.remove('hide');
       chip.className = MF.state === 'ok' ? 'ok' : MF.state === 'perm' ? 'warn' : 'bad';
-      chip.textContent = MF.state === 'ok' ? (MF.h === cloudHandle ? '☁ bulutta' : '📁 dosyada') : MF.state === 'perm' ? '📁 dosya: izin ver' : '📁 dosya hatası';
-      chip.title = MF.state === 'ok' ? (MF.h.name + (MF.lastAt ? ' · son yazma ' + hhmm(MF.lastAt) : ''))
+      chip.textContent = MF.h === cloudHandle ? (CS.busy ? '☁ eşitleniyor…' : MF.state === 'ok' ? '☁ bulutta · ' + stampShort(MF.lastOkAt || MF.lastAt) : '☁ bağlantı yok' + (MF.lastOkAt ? ' · son ' + stampShort(MF.lastOkAt) : '')) : MF.state === 'ok' ? '📁 dosyada' : MF.state === 'perm' ? '📁 dosya: izin ver' : '📁 dosya hatası';
+      chip.title = MF.h === cloudHandle ? ('Bulut (Firebase)' + (MF.lastOkAt ? ' · son eşitleme ' + stampLong(MF.lastOkAt) : '') + (MF.lastAt ? ' · son kayıt (yazma) ' + stampLong(MF.lastAt) : '') + (MF.state === 'ok' ? '' : ' · ' + (MF.err || 'hata')))
+        : MF.state === 'ok' ? (MF.h.name + (MF.lastAt ? ' · son yazma ' + hhmm(MF.lastAt) : ''))
         : MF.state === 'perm' ? 'Tarayıcı bu oturumda dosyaya yazma izni istiyor. Tıklayınca izin verilir. O zamana kadar veriler tarayıcıda tutulur ve günde bir .json yedeği iner.'
         : (MF.err || 'Dosyaya yazılamadı') + ' — tıklayınca tekrar dener';
     }
@@ -4338,30 +4350,54 @@ function cloudTake(j) {
   CLOUD.tok = j.idToken || j.id_token; CLOUD.refresh = j.refreshToken || j.refresh_token;
   CLOUD.exp = Date.now() + (+(j.expiresIn || j.expires_in) || 3600) * 1000;
 }
-const ANAHTAR = (() => { try { return window.__ANAHTAR ? JSON.parse(decodeURIComponent(escape(atob(window.__ANAHTAR)))) : null; } catch(e) { return null; } })();
+const AK_KEY = 'urunTakip_ak';
+(function () {   // anahtar dosyası bu sayfayı #k=... ile açar: anahtar bu tarayıcıda saklanır, adresten silinir
+  try { const m = /[#&]k=([^&]+)/.exec(location.hash); if (m) { localStorage.setItem(AK_KEY, decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname + location.search); } } catch(e) {}
+})();
+const ANAHTAR = (() => { try { const t = window.__ANAHTAR || localStorage.getItem(AK_KEY); return t ? JSON.parse(decodeURIComponent(escape(atob(t)))) : null; } catch(e) { return null; } })();
+let _ck = null;
+async function cKey() { if (!ANAHTAR || !ANAHTAR.k) return null; return _ck || (_ck = await crypto.subtle.importKey('raw', b64d(ANAHTAR.k), 'AES-GCM', false, ['encrypt', 'decrypt'])); }
+async function cEnc(str) {   // birim (JSON metni) -> şifreli metin; anahtar yoksa düz nesne
+  const k = await cKey(); if (!k) return JSON.parse(str);
+  const iv = crypto.getRandomValues(new Uint8Array(12)), ct = new Uint8Array(await crypto.subtle.encrypt({name: 'AES-GCM', iv}, k, new TextEncoder().encode(str)));
+  const all = new Uint8Array(12 + ct.length); all.set(iv); all.set(ct, 12); return 'e1:' + b64e(all);
+}
+async function cDec(v) {
+  if (typeof v === 'string' && v.startsWith('e1:')) {
+    const k = await cKey(); if (!k) { const er = new Error('Bulut verisi şifreli. Üretim Takip anahtar dosyası ile açın.'); er.keyErr = true; throw er; }
+    const all = b64d(v.slice(3));
+    try { return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name: 'AES-GCM', iv: all.slice(0, 12)}, k, all.slice(12)))); }
+    catch(e) { const er = new Error('Şifre çözülemedi: bu anahtar dosyası bu veriye ait değil.'); er.keyErr = true; throw er; }
+  }
+  return v;
+}
 async function cloudKeySignIn() {
   cloudTake(await fbPost(FB_CONFIG.authBase + '/v1/accounts:signInWithPassword?key=' + encodeURIComponent(FB_CONFIG.apiKey), {email: ANAHTAR.e, password: ANAHTAR.p, returnSecureToken: true}));
   try { await idbDo('meta', 'readwrite', s => s.put(CLOUD.refresh, 'fbr')); } catch(e) {}
 }
 const GOOGLE_ON = () => !!FB_CONFIG.googleClientId;
-$('akBuild').onclick = async () => {
-  const mail = $('akMail').value.trim() || FB_CONFIG.email, pw = $('akPw').value;
-  if (!mail || !pw) { $('akMsg').textContent = 'E-posta ve şifreyi girin.'; return; }
-  $('akMsg').textContent = 'Kontrol ediliyor…';
-  try {   // önce bu hesapla gerçekten girilebiliyor mu
-    await fbPost(FB_CONFIG.authBase + '/v1/accounts:signInWithPassword?key=' + encodeURIComponent(FB_CONFIG.apiKey), {email: mail, password: pw, returnSecureToken: true});
-  } catch(e) { $('akMsg').textContent = e.fb ? 'Bu e-posta/şifre ile Firebase girişi yapılamadı (' + e.message + ').' : 'İnternet bağlantısı kurulamadı.'; return; }
-  let src;
-  try { const r = await fetch(location.href.split('#')[0], {cache: 'no-store'}); if (!r.ok) throw 0; src = await r.text(); }
-  catch(e) { $('akMsg').textContent = 'Sayfa kaynağı okunamadı. Anahtar dosyasını GitHub adresinden (https://…) açılan sayfada oluşturun.'; return; }
-  src = src.replace(/<script>window\.__ANAHTAR=[^<]*<\/script>\s*/, '');
-  const tok = btoa(unescape(encodeURIComponent(JSON.stringify({e: mail, p: pw}))));
-  const i = src.indexOf('</head>'); if (i < 0) { $('akMsg').textContent = 'Sayfa biçimi tanınmadı.'; return; }
-  src = src.slice(0, i) + '<script>window.__ANAHTAR="' + tok + '";<\/script>\n' + src.slice(i);
-  downloadText('Uretim-Takip.html', src, 'text/html;charset=utf-8');
-  $('akPw').value = ''; $('akMsg').textContent = 'Anahtar dosyası indirildi. Bunu fabrika bilgisayarlarına kopyalayıp açın; GitHub sayfasına yüklemeyin.';
-  logAction('ayar_değiştir', 'Anahtar dosyası oluşturuldu');
-};
+$('akOut').onclick = () => keySignOut();
+function lockInit() {
+  $('lkGo').onclick = async () => {
+    const e = $('lkMail').value.trim(), p = $('lkPw').value; let rc = $('lkRc').value.trim(), say = (t, ok) => { $('lkMsg').style.color = ok ? '#15803d' : '#b91c1c'; $('lkMsg').textContent = t; };
+    if (!e || !p) { say('E-posta ve şifreyi girin.'); return; }
+    say('Kontrol ediliyor…', 1);
+    try { await fbPost(FB_CONFIG.authBase + '/v1/accounts:signInWithPassword?key=' + encodeURIComponent(FB_CONFIG.apiKey), {email: e, password: p, returnSecureToken: true}); }
+    catch(x) { say(x.fb ? 'Bu hesapla Firebase girişi yapılamadı (' + x.message + ').' : 'İnternet bağlantısı kurulamadı.'); return; }
+    if (rc) { try { if (atob(rc).length !== 32) throw 0; } catch(x) { say('Kurtarma kodu geçersiz.'); return; } } else rc = b64e(crypto.getRandomValues(new Uint8Array(32)));
+    const tok = btoa(unescape(encodeURIComponent(JSON.stringify({e, p, k: rc}))));
+    const html = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Üretim Takip</title></head><body style="font-family:system-ui;background:#0f172a;color:#e5e7eb;text-align:center;padding-top:20vh">Üretim Takip açılıyor…<script>location.replace(' + JSON.stringify(location.origin + location.pathname + '#k=' + encodeURIComponent(tok)).replace(/</g, '\\u003c') + ');<\/script></body></html>';
+    downloadText('Uretim-Takip.html', html, 'text/html;charset=utf-8');
+    $('lkPw').value = ''; say('İndirildi. KURTARMA KODU (güvenli bir yere yazın; veri bununla şifreli): ' + rc, 1);
+  };
+}
+async function keySignOut() {
+  const dirty = lsNum(DIRTY_KEY) === 1;
+  if (!(await askYes('Bu bilgisayardan çıkılsın mı?\nAnahtar ve bu bilgisayardaki veri kopyası silinir; tekrar girmek için anahtar dosyası gerekir.' + (dirty ? '\n\nUYARI: buluta gönderilmemiş değişiklikler var, silinirse kaybolur.' : '')))) return;
+  try { Object.keys(localStorage).filter(k => /^urunTakip_/.test(k)).forEach(k => localStorage.removeItem(k)); sessionStorage.clear(); } catch(e) {}
+  try { await idbDo('meta', 'readwrite', s => { s.delete('fbr'); s.delete('fbb'); }); } catch(e) {}
+  location.reload();
+}
 function loadGis() {
   return new Promise((res, rej) => {
     if (window.google && google.accounts && google.accounts.id) return res();
@@ -4464,16 +4500,17 @@ function cloudFromUnits(units) {
   const users = coll.kullanicilar ? Object.assign({}, giris || {}, {users: list('kullanicilar')}) : null;
   return {users, data};
 }
-function cloudNest(units, part) {
-  const root = {}, skip = part === 'genel' ? 1 : 2;
-  units.forEach((s, p) => { if (fbPart(p) !== part) return; const a = p.split('/').slice(skip); let o = root; for (let i = 0; i < a.length - 1; i++) o = o[a[i]] = o[a[i]] || {}; o[a[a.length - 1]] = JSON.parse(s); });
-  return root;
+async function cloudNest(units, part) {
+  const root = {}, skip = part === 'genel' ? 1 : 2, jobs = [];
+  units.forEach((s, p) => { if (fbPart(p) !== part) return; const a = p.split('/').slice(skip); let o = root; for (let i = 0; i < a.length - 1; i++) o = o[a[i]] = o[a[i]] || {}; const last = a[a.length - 1]; jobs.push(cEnc(s).then(v => { o[last] = v; })); });
+  await Promise.all(jobs); return root;
 }
-function cloudFlatten(part, obj) {
+async function cloudFlatten(part, obj) {
   const out = new Map(); if (obj == null) return out;
-  if (part === 'genel') fbEntries(obj).forEach(([k, v]) => { if (FB_COLLS.has(k)) fbEntries(v).forEach(([id, r]) => { const s = fbU(r); if (s !== undefined) out.set('genel/' + k + '/' + id, s); }); else { const s = fbU(v); if (s !== undefined) out.set('genel/' + k, s); } });
-  else fbEntries(obj).forEach(([k, v]) => { if (k === 'kayitlar') fbEntries(v).forEach(([id, r]) => { const s = fbU(r); if (s !== undefined) out.set(part + '/kayitlar/' + id, s); }); else { const s = fbU(v); if (s !== undefined) out.set(part + '/' + k, s); } });
-  return out;
+  const jobs = [], add = (p, v) => jobs.push(cDec(v).then(o => { const u = fbU(o); if (u !== undefined) out.set(p, u); }));
+  if (part === 'genel') fbEntries(obj).forEach(([k, v]) => { if (FB_COLLS.has(k)) fbEntries(v).forEach(([id, r]) => add('genel/' + k + '/' + id, r)); else add('genel/' + k, v); });
+  else fbEntries(obj).forEach(([k, v]) => { if (k === 'kayitlar') fbEntries(v).forEach(([id, r]) => add(part + '/kayitlar/' + id, r)); else add(part + '/' + k, v); });
+  await Promise.all(jobs); return out;
 }
 const CS = {last: new Map(), stamps: {genel: 0, aylar: {}}, busy: false, again: false, legacy: false};
 const fbBase = () => FB_CONFIG.databaseURL.replace(/\/$/, '') + '/' + FB_CONFIG.path;
@@ -4499,7 +4536,7 @@ async function cloudFetchChanged(meta) {
     [...RB.keys()].forEach(p => { if (ps.has(fbPart(p))) RB.delete(p); });
     for (let i = 0; i < changed.length; i += 6) {
       const grp = changed.slice(i, i + 6), res = await Promise.all(grp.map(pt => fbGet(pt)));
-      grp.forEach((pt, j) => cloudFlatten(pt, res[j]).forEach((s, p) => RB.set(p, s)));
+      for (let j = 0; j < grp.length; j++) (await cloudFlatten(grp[j], res[j])).forEach((s, p) => RB.set(p, s));
     }
   }
   return {RB: changed.length ? cloudNormUnits(RB) : RB, rS, changed};
@@ -4508,7 +4545,8 @@ async function cloudSyncOnce() {
   const at0 = lsNum(LOCAL_AT_KEY), dirty = lsNum(DIRTY_KEY) === 1;
   const meta = (await fbGet('meta')) || {};
   const {RB, rS, changed} = await cloudFetchChanged(meta);
-  if (!dirty && !CS.legacy) {
+  const needEnc = !!(ANAHTAR && ANAHTAR.k) && !meta.sifreli;   // veri henüz şifreli değil: hepsini şifreleyip yeniden yaz
+  if (!dirty && !CS.legacy && !needEnc) {
     if (!changed.length) { MF.state = 'ok'; MF.err = ''; return; }
     CS.last = RB; CS.stamps = {genel: rS.genel, aylar: Object.assign({}, rS.aylar)};
     const p = cloudFromUnits(RB);
@@ -4519,17 +4557,17 @@ async function cloudSyncOnce() {
   new Set([...L.keys(), ...CS.last.keys(), ...RB.keys()]).forEach(p => {
     const l = L.get(p), b = CS.last.get(p), r = RB.get(p), m = (l === b) ? r : l;
     if (m !== undefined) M.set(p, m);
-    if (m !== r) patch[p] = m === undefined ? null : JSON.parse(m);
+    if (m !== r || (needEnc && m !== undefined)) patch[p] = m === undefined ? null : m;
   });
   const keys = Object.keys(patch), touched = new Map(); keys.forEach(p => { const pt = fbPart(p); touched.set(pt, (touched.get(pt) || 0) + 1); });
   const partsInM = new Set([...M.keys()].map(fbPart));
   let ts = Math.max(Date.now(), rS.genel + 1, ...Object.values(rS.aylar).map(x => +x + 1 || 0));
-  if (keys.length) {
+  if (keys.length || needEnc) {
     const puts = [...touched.keys()].filter(pt => touched.get(pt) > 150), putSet = new Set(puts);
-    for (const pt of puts) { const o = cloudNest(M, pt); await fbReq('PUT', pt, Object.keys(o).length ? o : null); }
+    for (const pt of puts) { const o = await cloudNest(M, pt); await fbReq('PUT', pt, Object.keys(o).length ? o : null); }
     const rest = keys.filter(p => !putSet.has(fbPart(p)));
-    for (let i = 0; i < rest.length; i += 300) { const o = {}; rest.slice(i, i + 300).forEach(p => { o[p] = patch[p]; }); await fbReq('PATCH', '', o); }
-    const mp = {'meta/surum': 8, 'meta/guncelleme': ts, 'meta/aciklama': FB_DESC};
+    for (let i = 0; i < rest.length; i += 300) { const o = {}; for (const p of rest.slice(i, i + 300)) o[p] = patch[p] === null ? null : await cEnc(patch[p]); await fbReq('PATCH', '', o); }
+    const mp = {'meta/surum': 8, 'meta/guncelleme': ts, 'meta/aciklama': FB_DESC}; if (ANAHTAR && ANAHTAR.k) mp['meta/sifreli'] = true;
     touched.forEach((n, pt) => {
       if (pt === 'genel') mp['meta/genel'] = ts;
       else { const ym = pt.slice(7); mp['meta/aylar/' + ym] = partsInM.has(pt) ? ts : null; }
@@ -4556,8 +4594,8 @@ async function cloudSyncOnce() {
 }
 async function cloudSync() {
   if (CS.busy) { CS.again = true; return; }
-  CS.busy = true;
-  try { await cloudSyncOnce(); } catch(e) { MF.state = 'err'; MF.err = e.message || String(e); }
+  CS.busy = true; mfUI();
+  try { await cloudSyncOnce(); MF.lastOkAt = Date.now(); } catch(e) { MF.state = 'err'; MF.err = e.message || String(e); }
   CS.busy = false; mfUI();
   if (CS.again) { CS.again = false; setTimeout(cloudSync, 300); }
 }
@@ -4576,8 +4614,9 @@ function cloudAuditPush(rec) { if (!CLOUD_MODE || MF.h !== cloudHandle) return; 
 async function cloudAuditFlush() {
   if (!CLOUD_MODE || MF.h !== cloudHandle || !AUD_Q.length) return;
   const batch = AUD_Q.slice(), o = {};
-  batch.forEach(r => { o['denetim/' + new Date(r.ts).toISOString().slice(0, 7) + '/' + r.k] = {zaman: r.ts, kullanici: r.user, rol: r.role, eylem: r.action, detay: r.details || ''}; });
-  try { await fbReq('PATCH', '', o); AUD_Q = AUD_Q.filter(r => !batch.includes(r)); saveAudQ(); }
+  try {
+    for (const r of batch) { const body = {kullanici: r.user, rol: r.role, eylem: r.action, detay: r.details || ''}; o['denetim/' + new Date(r.ts).toISOString().slice(0, 7) + '/' + r.k] = (ANAHTAR && ANAHTAR.k) ? {zaman: r.ts, c: await cEnc(JSON.stringify(body))} : Object.assign({zaman: r.ts}, body); }
+    await fbReq('PATCH', '', o); AUD_Q = AUD_Q.filter(r => !batch.includes(r)); saveAudQ(); }
   catch(e) { clearTimeout(audT); audT = setTimeout(cloudAuditFlush, 30000); }
 }
 async function cloudAuditPull() {
@@ -4587,7 +4626,7 @@ async function cloudAuditPull() {
     const d = new Date(), m1 = d.toISOString().slice(0, 7); d.setMonth(d.getMonth() - 1);
     const res = await Promise.all([m1, d.toISOString().slice(0, 7)].map(m => fbGet('denetim/' + m)));
     const all = loadAudit(), have = new Set(all.map(r => r.k).filter(Boolean)); let add = 0;
-    res.forEach(o => fbEntries(o).forEach(([k, v]) => { if (!v || have.has(k)) return; have.add(k); add++; all.push({k, ts: v.zaman, user: v.kullanici, role: v.rol, action: v.eylem, details: v.detay}); }));
+    for (const o of res) for (const [k, v0] of fbEntries(o)) { if (!v0 || have.has(k)) continue; const v = v0.c ? Object.assign({zaman: v0.zaman}, await cDec(v0.c)) : v0; have.add(k); add++; all.push({k, ts: v.zaman, user: v.kullanici, role: v.rol, action: v.eylem, details: v.detay}); }
     if (add) { all.sort((a, b) => b.ts - a.ts); if (all.length > 5000) all.length = 5000; saveAudit(all); return true; }
   } catch(e) {}
   return false;
@@ -4616,7 +4655,7 @@ function cloudGate() {
         const hasLocal = !!(localStorage.getItem(USERS_KEY) && localStorage.getItem(DATA_KEY)), dirty = lsNum(DIRTY_KEY) === 1 && hasLocal;
         if (!meta) {
           const sh = await fbGet('', 'shallow=true');
-          if (!sh) return 'new';
+          if (!sh || !Object.keys(sh).filter(k => k !== 'uygulama').length) return 'new';
           if (sh.iv) {   // eski sürümün şifreli tek kaydı: aç ve yeni düzene taşı
             const j = await fbGet('');
             let raw, pw2 = null;
@@ -4656,6 +4695,7 @@ function cloudGate() {
       } catch(e) {
         if ((e.status === 401 || e.status === 403) && !ANAHTAR && !GOOGLE_ON()) { try { await idbDo('meta', 'readwrite', s => s.delete('fbr')); } catch(x) {} msg('Bu sayfa tek başına veriye bağlanamaz. Anahtar dosyası (Uretim-Takip.html) ile açın.'); return 'net'; }
         if ((e.status === 401 || e.status === 403) && GOOGLE_ON()) { try { await idbDo('meta', 'readwrite', s => s.delete('fbr')); } catch(x) {} msg('Bu Google hesabının veriye erişim izni yok (Firebase kurallarındaki izinli e-posta listesini kontrol edin). Sayfayı yenileyip başka hesapla deneyin.'); return 'net'; }
+        if (e.keyErr) { msg(e.message); return 'net'; }
         msg(e.status ? 'Bulut okunamadı (HTTP ' + e.status + '). Veritabanı kurallarını kontrol edin.' : 'İnternet bağlantısı kurulamadı.'); return 'net';
       }
     };
@@ -5180,6 +5220,7 @@ $('hrClear').onclick = async () => {
   }
   try {
     SERVER = await detectServer();
+    if (!SERVER && CLOUD_ON() && !ANAHTAR && !window.__skipGate && !window.__FB_TEST) { showScreen('lockScreen'); lockInit(); return; }
     if (!SERVER && CLOUD_ON()) {
       CLOUD_MODE = true;
       const g = await cloudGate();
