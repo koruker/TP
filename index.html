@@ -6,11 +6,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Üretim Takip</title>
 <style>
-:root{--bg:#f3f5f8;--card:#fff;--tx:#1b2430;--mut:#6b7788;--line:#dde3ec;--pri:#1f6feb;--red:#d92d20;--redbg:#fee4e2;--ok:#12805c;--okbg:#d9f5e7;--amb:#b54708;--ambbg:#fef0c7}
+:root{--fs:3.7mm;--rh:8.5mm;--cw:42mm;--ch:21mm;--k:1;--hdrH:90px;--bg:#f3f5f8;--card:#fff;--tx:#1b2430;--mut:#6b7788;--line:#dde3ec;--pri:#1f6feb;--red:#d92d20;--redbg:#fee4e2;--ok:#12805c;--okbg:#d9f5e7;--amb:#b54708;--ambbg:#fef0c7}
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx);font-size:15px}
 .hide{display:none!important}
-#top{position:sticky;top:0;z-index:20;background:#101826;color:#fff;display:flex;align-items:stretch;gap:8px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+#hdr{position:sticky;top:0;z-index:20;background:var(--bg)}
+#top{background:#101826;color:#fff;display:flex;align-items:stretch;gap:8px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 #top .lbl{font-size:11px;letter-spacing:.06em;color:#9fb0c8;align-self:center;white-space:nowrap}
 #chips{display:flex;gap:8px;overflow-x:auto;flex:1;padding-bottom:2px}
 .chip{flex:0 0 auto;background:#1b2740;border:1px solid #2b3a58;border-radius:8px;padding:5px 10px;font-size:13px;line-height:1.25;white-space:nowrap}
@@ -77,16 +78,19 @@ details summary{cursor:pointer;font-weight:600;color:var(--mut)}
 .lockCard h2{margin:0 0 6px}
 .lockCard .lockForm{max-width:320px;margin:16px auto 0;display:flex;flex-direction:column;gap:8px}
 
-.skgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
-.skcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.skcard .sklbl{font-size:11px;color:var(--mut);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.skcard .skmat{font-size:11px;color:var(--pri);font-weight:700;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.skcard .skval{font-size:22px;font-weight:700;margin:4px 0 1px;font-variant-numeric:tabular-nums;line-height:1.1}
-.skcard .skval small{font-size:12px;color:var(--mut);font-weight:400}
-.skcard .skkg{font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
+.skgrid{display:grid;grid-template-columns:repeat(auto-fill,var(--cw));gap:8px;justify-content:start}
+.skcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:0 3mm;box-shadow:0 1px 2px rgba(0,0,0,.04);width:var(--cw);height:var(--ch);container-type:size;display:flex;flex-direction:column;justify-content:space-evenly;overflow:hidden}
+.skcard>div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
+.skcard .sklbl{font-size:11px;font-size:min(13cqh,8cqw);color:var(--mut);font-weight:600}
+.skcard .skmat{font-size:11px;font-size:min(13cqh,8cqw);color:var(--pri);font-weight:700}
+.skcard .skval{font-size:22px;font-size:min(30cqh,17cqw);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.skcard .skval small{font-size:.55em;color:var(--mut);font-weight:400}
+.skcard .skkg{font-size:12px;font-size:min(13cqh,8cqw);color:var(--mut);font-variant-numeric:tabular-nums}
 .skcard.low{background:var(--redbg);border-color:#fda29b;animation:pulse 1.6s infinite}
 .skcard.low .sklbl,.skcard.low .skkg,.skcard.low .skmat{color:#912018}
 .skcard.low .skval{color:var(--red)}
+#toLast{position:fixed;right:16px;bottom:18px;z-index:30;background:var(--pri);color:#fff;border:0;border-radius:22px;padding:11px 16px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+#toLast:hover{background:#1858c0}
 .sk-empty{padding:16px;text-align:center;color:var(--mut);font-size:13px}
 
 .subtabs{display:flex;gap:6px;flex-wrap:wrap}
@@ -106,8 +110,8 @@ details summary{cursor:pointer;font-weight:600;color:var(--mut)}
 
 table.xl{border-collapse:collapse;table-layout:fixed;min-width:900px;width:100%}
 table.xl th,table.xl td{border:1px solid #c5cdd9;padding:0;white-space:nowrap;background:#fff}
-table.xl th{background:#e9edf3;padding:6px 8px;font-size:12px;color:#3b4656;text-align:left;position:relative;overflow:visible}
-table.xl td.rn{background:#e9edf3;color:#7a8696;text-align:center;font-size:12px;cursor:pointer;user-select:none}
+table.xl th{background:#e9edf3;padding:6px 8px;font-size:calc(var(--fs)*.86);color:#3b4656;text-align:left;position:relative;overflow:visible}
+table.xl td.rn{background:#e9edf3;color:#7a8696;text-align:center;font-size:calc(var(--fs)*.86);cursor:pointer;user-select:none}
 table.xl tr.sel td,table.xl tr.sel td input{background:#dbeafe!important}
 table.xl tr.sel td.rn{background:#1976d2!important;color:#fff}
 #selAllTh{cursor:pointer;text-align:center}
@@ -118,15 +122,16 @@ table.xl tr.sel td.rn{background:#1976d2!important;color:#fff}
 #prodHead th[data-sort]{cursor:pointer}
 #prodHead th[data-sort]:hover{text-decoration:underline}
 #colChecks{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0 16px}
-table.xl td.dn{text-align:center;font-size:12px;color:var(--mut);background:#fafbfd}
+table.xl td.dn{text-align:center;font-size:calc(var(--fs)*.86);overflow:hidden;text-overflow:ellipsis;color:var(--mut);background:#fafbfd}
 table.xl td.dn.mon{color:var(--pri);font-weight:700}
-table.xl td.use{padding:0 8px;font-size:13px;background:#fafbfd;overflow:hidden;text-overflow:ellipsis}
+table.xl td.use{padding:0 8px;font-size:calc(var(--fs)*.93);background:#fafbfd;overflow:hidden;text-overflow:ellipsis}
 table.xl td.x{text-align:center}
-table.xl input{border:0;border-radius:0;background:transparent;padding:0 8px;height:32px;width:100%;font-size:14px}
+table.xl td{height:var(--rh);overflow:hidden;text-overflow:ellipsis}
+table.xl input{border:0;border-radius:0;background:transparent;padding:0 8px;height:var(--rh);width:100%;font-size:var(--fs);text-overflow:ellipsis}
 table.xl input:focus{outline:2px solid var(--pri);outline-offset:-2px;background:#fff;border:0}
 table.xl input.bad{background:var(--redbg);color:var(--red)}
 table.xl tr.sep td{background:#d5dce7;height:26px;padding:0}
-.xbtn{border:0;background:transparent;color:#a3adbb;font-size:14px;height:32px;width:100%}
+.xbtn{border:0;background:transparent;color:#a3adbb;font-size:var(--fs);height:var(--rh);width:100%}
 .xbtn:hover{color:var(--red);background:var(--redbg)}
 table.xl td.tg input{text-align:center;font-variant-numeric:tabular-nums}
 table.xl td.tg.anchor input{font-weight:700}
@@ -137,15 +142,15 @@ table.xl td.tg.done{background:var(--okbg)}
 table.xl td.tg.done input{color:var(--ok);font-weight:700}
 table.xl td.cd{position:relative}
 table.xl td.cd input{padding-right:22px}
-table.xl td.cd::after{content:'▾';position:absolute;right:7px;top:8px;color:#9aa5b5;font-size:12px;pointer-events:none}
+table.xl td.cd::after{content:'▾';position:absolute;right:7px;top:calc(var(--rh)/2 - 7px);color:#9aa5b5;font-size:12px;pointer-events:none}
 table.xl td.dt{position:relative}
-table.xl td.dt input[data-f=date]{width:calc(100% - 32px)}
-.calbtn{position:absolute;right:0;top:0;height:32px;width:32px;border:0;background:transparent;font-size:15px;padding:0}
+table.xl td.dt input[data-f=date]{width:calc(100% - var(--rh))}
+.calbtn{position:absolute;right:0;top:0;height:var(--rh);width:var(--rh);border:0;background:transparent;font-size:15px;padding:0}
 .calbtn:hover{background:#e7f0ff}
 table.xl input.dpick{position:absolute;right:0;bottom:0;width:1px;height:1px;padding:0;opacity:0;pointer-events:none;border:0}
 
 table.xl th.ver-col{text-align:center}
-table.xl td.ver{text-align:center;font-weight:600;font-size:13px;background:#fafbfd;font-variant-numeric:tabular-nums}
+table.xl td.ver{text-align:center;font-weight:600;font-size:calc(var(--fs)*.93);overflow:hidden;text-overflow:ellipsis;background:#fafbfd;font-variant-numeric:tabular-nums}
 table.xl td.ver.high{color:var(--ok);background:var(--okbg)}
 table.xl td.ver.mid{color:var(--amb);background:var(--ambbg)}
 table.xl td.ver.low{color:var(--red);background:var(--redbg)}
@@ -349,6 +354,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
 </div>
 
 <div id="app" class="hide">
+<div id="hdr">
 <div id="top">
   <div class="lbl">KALAN<br>STOK</div>
   <div id="chips"></div>
@@ -359,17 +365,20 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
     <button id="logoutBtn" title="Çıkış">⏻</button>
   </div>
 </div>
-<div id="bkBanner" class="hide"></div>
-<div id="alarms"></div>
-<div id="codeMenu"></div>
-
 <div class="tabs">
   <button class="tab on" data-tab="takip">📋 Üretim Takip</button>
   <button class="tab admin-only hide" data-tab="verim">📈 Verim Analizi</button>
   <button class="tab" data-tab="ayarlar">⚙️ Ayarlar</button>
   <button class="tab hide" id="tabHareket" data-tab="hareket">📜 Hareket Dökümü</button>
 </div>
+</div>
+<div id="bkBanner" class="hide"></div>
+<div id="alarms"></div>
+<div id="codeMenu"></div>
 
+
+
+<button id="toLast" class="hide" title="Son yazılan satıra git">⬇ Son satır</button>
 <main>
 
 <section id="tab-takip">
@@ -733,6 +742,17 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
     </div>
 
     <div id="subtab-genel" class="hide">
+      <div class="card">
+        <h2>🖥 Görünüm (yalnızca bu bilgisayar)</h2>
+        <div class="grid">
+          <div><label>Tablo yazı boyutu (mm)</label><input id="uiFs" inputmode="decimal"></div>
+          <div><label>Tablo satır yüksekliği (mm)</label><input id="uiRh" inputmode="decimal"></div>
+          <div><label>Stok kutusu genişliği (mm)</label><input id="uiCw" inputmode="decimal"></div>
+          <div><label>Stok kutusu yüksekliği (mm)</label><input id="uiCh" inputmode="decimal"></div>
+        </div>
+        <div class="row"><button class="btn sec sm" id="uiReset">Varsayılana dön</button></div>
+        <div class="hint">Her ekranın çözünürlüğü farklı olduğundan bu değerler yalnızca bu bilgisayarda (tarayıcıda) saklanır, diğer bilgisayarları etkilemez. Stok kutusunun içindeki yazılar kutu boyutuna göre kendiliğinden büyür/küçülür. Tablo yazısı büyüyünce kolonlar da oransal genişler; ekrana sığmazsa tablo yana kaydırılır. Varsayılan: yazı 3,7 · satır 8,5 · kutu 42 × 21.</div>
+      </div>
       <div class="card hide" id="srvCard">
         <h2>🖥 Sunucu</h2>
         <div class="hint" style="margin-top:0">Aynı ağdaki diğer bilgisayarlar tarayıcıya şu adreslerden birini yazar:</div>
@@ -1164,6 +1184,7 @@ function applyColWidths(override) {
   const table = document.querySelector('table.xl');
   if (!table || !S || !S.settings) return;
   const keys = visibleColKeys(), w = Object.assign(colWeights(), override || {});
+  table.style.minWidth = Math.round(keys.reduce((a, k) => a + (DEFAULT_COL_WIDTHS[k] || 100), 0) * 0.85 * (+getComputedStyle(document.documentElement).getPropertyValue('--k') || 1)) + 'px';
   const tot = keys.reduce((a, k) => a + w[k], 0) || 1;
   table.querySelectorAll('colgroup col').forEach(col => {
     const k = col.dataset.col; if (!k) return;
@@ -3600,6 +3621,7 @@ function showSubtab(name) {
 document.querySelectorAll('.subtab').forEach(t=>t.onclick = () => showSubtab(t.dataset.subtab));
 
 function renderAll() {
+  if (typeof _autoLast !== 'undefined' && _autoLast && currentUser) { _autoLast = false; setTimeout(() => { goLast(false); uiToLastUpdate(); }, 250); }
   fillMatSelect();
   renderTop();
   renderStocks();
@@ -5335,6 +5357,43 @@ $('hrClear').onclick = async () => {
 };
 
 
+
+/* ====== Görünüm (bu bilgisayar): yazı/satır/kutu ölçüleri (mm), sabit üst menü, son satıra git ====== */
+const UI_KEY = 'urunTakip_ui', UI_DEF = {fs: 3.7, rh: 8.5, cw: 42, ch: 21}, UI_LIM = {fs: [2.2, 8], rh: [4, 20], cw: [20, 120], ch: [10, 60]};
+const UI = Object.assign({}, UI_DEF); try { const j = JSON.parse(localStorage.getItem(UI_KEY) || '{}'); Object.keys(UI_DEF).forEach(k => { if (+j[k] > 0) UI[k] = Math.min(UI_LIM[k][1], Math.max(UI_LIM[k][0], +j[k])); }); } catch(e) {}
+function uiApply(save) {
+  const r = document.documentElement.style;
+  r.setProperty('--fs', UI.fs + 'mm'); r.setProperty('--rh', UI.rh + 'mm'); r.setProperty('--cw', UI.cw + 'mm'); r.setProperty('--ch', UI.ch + 'mm'); r.setProperty('--k', (UI.fs / UI_DEF.fs).toFixed(3));
+  if (save) { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch(e) {} }
+  try { applyColWidths(); } catch(e) {}
+  uiToLastUpdate();
+}
+const uiIds = {fs: 'uiFs', rh: 'uiRh', cw: 'uiCw', ch: 'uiCh'};
+function uiFill() { Object.keys(uiIds).forEach(k => { const el = $(uiIds[k]); if (el && document.activeElement !== el) el.value = String(UI[k]).replace('.', ','); }); }
+Object.keys(uiIds).forEach(k => {
+  const el = $(uiIds[k]); if (!el) return;
+  const take = fin => { const v = parseFloat(String(el.value).replace(',', '.')); if (isFinite(v) && v >= UI_LIM[k][0] && v <= UI_LIM[k][1]) { UI[k] = v; uiApply(true); } else if (fin) el.value = String(UI[k]).replace('.', ','); };
+  el.addEventListener('input', () => take(false)); el.addEventListener('change', () => take(true)); el.addEventListener('blur', () => take(true));
+});
+$('uiReset').onclick = () => { Object.assign(UI, UI_DEF); uiFill(); uiApply(true); };
+function lastRow() { let last = null; document.querySelectorAll('#entBody tr[data-id]').forEach(tr => { const e = entById(tr.dataset.id); if (e && !isBlank(e)) last = tr; }); return last; }
+function goLast(smooth) { const tr = lastRow(); if (!tr) { window.scrollTo({top: 0, behavior: smooth ? 'smooth' : 'auto'}); return; } tr.scrollIntoView({block: 'center', behavior: smooth ? 'smooth' : 'auto'}); }
+let _tlRaf = 0;
+function uiToLastUpdate() {
+  cancelAnimationFrame(_tlRaf);
+  _tlRaf = requestAnimationFrame(() => {
+    const b = $('toLast'); if (!b) return;
+    const tk = $('tab-takip'), tr = (tk && !tk.classList.contains('hide') && !$('app').classList.contains('hide')) ? lastRow() : null;
+    if (!tr) { b.classList.add('hide'); return; }
+    const rc = tr.getBoundingClientRect(), hh = $('hdr').offsetHeight;
+    b.classList.toggle('hide', !(rc.top > window.innerHeight - 30 || rc.bottom < hh + 10));
+  });
+}
+$('toLast').onclick = () => goLast(true);
+window.addEventListener('scroll', uiToLastUpdate, {passive: true}); window.addEventListener('resize', uiToLastUpdate);
+try { new ResizeObserver(() => document.documentElement.style.setProperty('--hdrH', $('hdr').offsetHeight + 'px')).observe($('hdr')); } catch(e) {}
+var _autoLast = true;
+uiApply(false); uiFill();
 /* ====== Başlangıç ====== */
 (async function init() {
   if (!window.crypto || !crypto.subtle) {
