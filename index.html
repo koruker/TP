@@ -777,6 +777,11 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
     </div>
 
     <div id="subtab-yedek" class="hide">
+      <div class="card admin-only" id="cbCard">
+        <h2>☁ Bulut yedekleri</h2>
+        <div class="hint" style="margin-top:0">Her gün buluta otomatik 1 yedek alınır; son 7 gün tutulur, 8. yedekte en eskisi buluttan silinir. Geri yüklemek için yönetici şifresi gerekir.</div>
+        <div id="cbList" class="hint">Yükleniyor…</div>
+      </div>
       <div class="card admin-only" id="akCard">
         <h2>🔑 Bu bilgisayar</h2>
         <div class="hint" style="margin-top:0">Ortak veya başkasına ait bir bilgisayarda işiniz bitince anahtarı ve yerel veri kopyasını silin. Tekrar girmek için anahtar dosyası gerekir.</div>
@@ -874,6 +879,19 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
   <div class="modalCard">
     <p id="alMsg" style="white-space:pre-line;font-size:15px;margin:0 0 14px"></p>
     <div class="row" style="margin-top:0"><button class="btn" id="alOk">Tamam</button></div>
+  </div>
+</div>
+<div id="offModal" class="modal hide">
+  <div class="modalCard">
+    <h3 style="margin:0 0 8px">İnternet geldi — çevrimdışı veri var</h3>
+    <p style="white-space:pre-line;font-size:14px;margin:0 0 10px">Çevrimdışıyken girilen veriler bu bilgisayarda duruyor. Ne yapılsın?\n\n• Buluta uygula: buluttaki veri bu bilgisayardaki veriyle DEĞİŞTİRİLİR (önce buluttaki hali "son işlem öncesi" olarak saklanır).\n• At: bu bilgisayardaki çevrimdışı veri atılır, buluttaki veri alınır (çevrimdışı veri dosya olarak indirilir).\n\nİkisi için de yönetici (ana) şifresi gerekir.</p>
+    <input id="offPw" type="password" placeholder="Yönetici şifresi" style="width:100%;margin-bottom:6px">
+    <div id="offErr" class="hint" style="color:#b91c1c;min-height:16px"></div>
+    <div class="row" style="margin-top:4px">
+      <button class="btn" id="offApply">Buluta uygula</button>
+      <button class="btn sec" id="offDiscard">Çevrimdışı veriyi at</button>
+      <button class="btn sec" id="offWait">Şimdilik bekle</button>
+    </div>
   </div>
 </div>
 <div id="ynModal" class="modal hide">
@@ -1673,6 +1691,7 @@ async function restoreSnapshot(ts, skipPre) {
 
 async function renderBackupPage() {
   if (!$('subtab-yedek') || $('subtab-yedek').classList.contains('hide')) return;
+  if (typeof renderCloudBackups === 'function') renderCloudBackups();
   $('bkAutoDl').checked = !!prefs.autoDl;
   $('bkBrowser').textContent = (lastSavedAt?'Son kayıt '+hhmm(lastSavedAt):'Veriler şifreli yedeklenir') + (lastSnapAt?' · geçmiş yedek '+hhmm(lastSnapAt):'');
   let ftxt = 'Bağlı değil';
@@ -4153,7 +4172,7 @@ function mfUI() {
     else {
       chip.classList.remove('hide');
       chip.className = MF.state === 'ok' ? 'ok' : MF.state === 'perm' ? 'warn' : 'bad';
-      chip.textContent = MF.h === cloudHandle ? (CS.busy ? '☁ eşitleniyor…' : MF.state === 'ok' ? '☁ bulutta · ' + stampShort(MF.lastOkAt || MF.lastAt) : '☁ bağlantı yok' + (MF.lastOkAt ? ' · son ' + stampShort(MF.lastOkAt) : '')) : MF.state === 'ok' ? '📁 dosyada' : MF.state === 'perm' ? '📁 dosya: izin ver' : '📁 dosya hatası';
+      chip.textContent = MF.h === cloudHandle ? (OFFL.on ? '⚠ çevrimdışı mod' : CS.busy ? '☁ eşitleniyor…' : MF.state === 'ok' ? '☁ bulutta · ' + stampShort(MF.lastOkAt || MF.lastAt) : '☁ bağlantı yok' + (MF.lastOkAt ? ' · son ' + stampShort(MF.lastOkAt) : '')) : MF.state === 'ok' ? '📁 dosyada' : MF.state === 'perm' ? '📁 dosya: izin ver' : '📁 dosya hatası';
       chip.title = MF.h === cloudHandle ? ('Bulut (Firebase)' + (MF.lastOkAt ? ' · son eşitleme ' + stampLong(MF.lastOkAt) : '') + (MF.lastAt ? ' · son kayıt (yazma) ' + stampLong(MF.lastAt) : '') + (MF.state === 'ok' ? '' : ' · ' + (MF.err || 'hata')))
         : MF.state === 'ok' ? (MF.h.name + (MF.lastAt ? ' · son yazma ' + hhmm(MF.lastAt) : ''))
         : MF.state === 'perm' ? 'Tarayıcı bu oturumda dosyaya yazma izni istiyor. Tıklayınca izin verilir. O zamana kadar veriler tarayıcıda tutulur ve günde bir .json yedeği iner.'
@@ -4521,7 +4540,7 @@ async function cloudFlatten(part, obj) {
   else fbEntries(obj).forEach(([k, v]) => { if (k === 'kayitlar') fbEntries(v).forEach(([id, r]) => add(part + '/kayitlar/' + id, r)); else add(part + '/' + k, v); });
   await Promise.all(jobs); return out;
 }
-const CS = {last: new Map(), stamps: {genel: 0, aylar: {}}, busy: false, again: false, legacy: false};
+const CS = {last: new Map(), stamps: {genel: 0, aylar: {}}, busy: false, again: false, legacy: false, replace: false};
 const fbBase = () => FB_CONFIG.databaseURL.replace(/\/$/, '') + '/' + FB_CONFIG.path;
 async function fbReq(method, rel, body, q, retried) {
   const url = fbBase() + (rel ? '/' + rel : '') + '.json?auth=' + encodeURIComponent(await cloudToken()) + (q ? '&' + q : '');
@@ -4555,6 +4574,7 @@ async function cloudSyncOnce() {
   const meta = (await fbGet('meta')) || {};
   const {RB, rS, changed} = await cloudFetchChanged(meta);
   const needEnc = !!(ANAHTAR && ANAHTAR.k) && !meta.sifreli;   // veri henüz şifreli değil: hepsini şifreleyip yeniden yaz
+  if (CS.replace) { CS.last = new Map(RB); CS.replace = false; }   // geri yükleme / çevrimdışı uygulama: yerel veri buluttakinin yerine geçer
   if (!dirty && !CS.legacy && !needEnc) {
     if (!changed.length) { MF.state = 'ok'; MF.err = ''; return; }
     CS.last = RB; CS.stamps = {genel: rS.genel, aylar: Object.assign({}, rS.aylar)};
@@ -4602,11 +4622,102 @@ async function cloudSyncOnce() {
   MF.state = 'ok'; MF.err = '';
 }
 async function cloudSync() {
+  if (OFFL.on) { await offlineProbe(); if (OFFL.on) return; }
   if (CS.busy) { CS.again = true; return; }
   CS.busy = true; mfUI();
   try { await cloudSyncOnce(); MF.lastOkAt = Date.now(); } catch(e) { MF.state = 'err'; MF.err = e.message || String(e); }
   CS.busy = false; mfUI();
   if (CS.again) { CS.again = false; setTimeout(cloudSync, 300); }
+  else if (MF.state === 'ok') cloudBackupMaybe();
+}
+/* ---- Çevrimdışı mod: internet gelince yönetici onayı olmadan bulut verisi değiştirilmez ---- */
+const OFFL_KEY = 'urunTakip_offl';
+const OFFL = {on: (() => { try { return localStorage.getItem(OFFL_KEY) === '1'; } catch(e) { return false; } })(), asking: false, last: 0, snooze: 0};
+function offSet(v) { OFFL.on = v; try { v ? localStorage.setItem(OFFL_KEY, '1') : localStorage.removeItem(OFFL_KEY); } catch(e) {} mfUI(); }
+function closePage() { try { window.close(); } catch(e) {} document.body.innerHTML = '<div style="font-family:system-ui;padding:20vh 16px;text-align:center;color:#e5e7eb;background:#0f172a;min-height:100vh">Sayfa kapatıldı. Bu sekmeyi kapatabilirsiniz.</div>'; }
+async function offlineProbe() {
+  if (OFFL.asking || !USERS || Date.now() - OFFL.last < 8000) return;
+  OFFL.last = Date.now();
+  try { await fbGet('meta'); } catch(e) { MF.state = 'err'; MF.err = 'bağlantı yok'; mfUI(); return; }
+  if (lsNum(DIRTY_KEY) !== 1) { offSet(false); return; }   // çevrimdışıyken değişiklik girilmemiş: normal eşitleme
+  if (Date.now() < OFFL.snooze) return;
+  OFFL.asking = true; try { await offlineDecide(); } finally { OFFL.asking = false; OFFL.last = Date.now(); }
+}
+function offlineDecide() {
+  return new Promise(resolve => {
+    const m = $('offModal'); $('offPw').value = ''; $('offErr').textContent = ''; m.classList.remove('hide');
+    const withPw = fn => async () => {
+      const pw = $('offPw').value; if (!pw) { $('offErr').textContent = 'Yönetici şifresini girin.'; return; }
+      if (!(await verifyPass(pw, USERS.masterVerif))) { $('offErr').textContent = 'Şifre yanlış.'; return; }
+      m.classList.add('hide'); try { await fn(); } catch(e) { await notify('İşlem başarısız: ' + (e.message || e)); } resolve();
+    };
+    $('offApply').onclick = withPw(offlineApply); $('offDiscard').onclick = withPw(offlineDiscard);
+    $('offWait').onclick = () => { OFFL.snooze = Date.now() + 600000; m.classList.add('hide'); resolve(); };
+  });
+}
+const localFileBackup = pre => { try { mfDownload(pre + '-' + mfStamp() + '.json', JSON.stringify({v: 7, app: 'urun-takip', plain: true, data: snapshot_ls()})); } catch(e) {} };
+async function offlineApply() {
+  localFileBackup('uretim-takip-cevrimdisi');
+  await cloudBackupOnce();
+  CS.replace = true; lsPut(DIRTY_KEY, 1); offSet(false); await cloudSync();
+  if (MF.state !== 'ok') { offSet(true); throw new Error(MF.err || 'bulut yazılamadı'); }
+  await notify('Çevrimdışı veri buluta uygulandı. Önceki bulut verisi Ayarlar › Yedek › "Son işlem öncesi" altında duruyor.');
+}
+async function offlineDiscard() {
+  localFileBackup('uretim-takip-cevrimdisi-atilan');
+  lsPut(DIRTY_KEY, 0); CS.last = new Map(); CS.stamps = {genel: 0, aylar: {}}; offSet(false); await cloudSync();
+  await notify('Çevrimdışı veri atıldı, bulut verisi alındı.');
+}
+/* ---- Günlük bulut yedeği (yedek/<gün>, özet: yedekOzet/<gün>); en fazla 7 ---- */
+const BK_MAX = 7; let bkChecked = 0;
+const bkDay = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const bkCount = d => (d.entries || []).filter(e => !isBlank(e)).length;
+async function cloudBackupMaybe(force) {
+  if (!CLOUD_MODE || MF.h !== cloudHandle || OFFL.on || MF.state !== 'ok' || lsNum(DIRTY_KEY) === 1 || !currentUser) return;
+  if (!force && Date.now() - bkChecked < 600000) return; bkChecked = Date.now();
+  try {
+    const oz = (await fbGet('yedekOzet')) || {}, day = bkDay();
+    if (!oz[day]) {
+      const data = snapshot(), blob = await cEnc(JSON.stringify(data));
+      await fbReq('PUT', 'yedek/' + day, blob);
+      oz[day] = {zaman: Date.now(), kayit: bkCount(data)}; await fbReq('PUT', 'yedekOzet/' + day, oz[day]);
+    }
+    const days = Object.keys(oz).sort();
+    while (days.length > BK_MAX) { const old = days.shift(); await fbReq('PUT', 'yedek/' + old, null); await fbReq('PUT', 'yedekOzet/' + old, null); }
+  } catch(e) {}
+}
+async function cloudBackupOnce() {   // veri değiştirilmeden hemen önce buluttaki mevcut hal (tek yuva, 7'ye dahil değil)
+  const meta = (await fbGet('meta')) || {}, {RB} = await cloudFetchChanged(meta);
+  if (!RB.size) return;
+  const data = cloudFromUnits(RB).data;
+  await fbReq('PUT', 'yedekOnce', {zaman: Date.now(), kayit: bkCount(data), veri: await cEnc(JSON.stringify(data))});
+}
+async function renderCloudBackups() {
+  const box = $('cbList'); if (!box || !CLOUD_MODE || MF.h !== cloudHandle) { if (box) box.textContent = 'Bulut bağlı değil.'; return; }
+  let oz, once; try { oz = (await fbGet('yedekOzet')) || {}; once = await fbGet('yedekOnce/kayit') !== null ? {zaman: await fbGet('yedekOnce/zaman'), kayit: await fbGet('yedekOnce/kayit')} : null; } catch(e) { box.textContent = 'Yedek listesi alınamadı (bağlantı yok).'; return; }
+  const row = (k, t, z, n) => '<div class="bkrow"><div>' + t + ' · ' + (z ? stampShort(z) : '') + ' · ' + n + ' kayıt</div><div><button class="btn sec sm" data-cbr="' + k + '">Geri yükle</button></div></div>';
+  const days = Object.keys(oz).sort().reverse();
+  box.innerHTML = (days.map(d => row(d, '📅 ' + d, oz[d].zaman, oz[d].kayit)).join('') || '<div>Henüz yedek yok (ilk yedek bugün eşitleme sonrası alınır).</div>') + (once ? row('once', '↩ Son işlem öncesi', once.zaman, once.kayit) : '');
+  box.querySelectorAll('[data-cbr]').forEach(b => { b.onclick = () => cloudRestore(b.dataset.cbr); });
+}
+async function cloudRestore(k) {
+  if (OFFL.on) { notify('Çevrimdışı modda geri yükleme yapılamaz.'); return; }
+  const pw = await askPassword('Yönetici şifresi', (k === 'once' ? 'Son işlem öncesi veri' : k + ' yedeği') + ' geri yüklenecek. Şu anki veri bununla DEĞİŞTİRİLİR.');
+  if (!pw) return;
+  if (!(await askYes('Geri yükleme: şu anki tüm üretim verisi seçilen yedekle değiştirilecek. Şu anki hali "Son işlem öncesi" olarak saklanır ve dosya olarak indirilir.\n\nDevam edilsin mi?'))) return;
+  try {
+    if (lsNum(DIRTY_KEY) === 1) await cloudSync();
+    const blob = k === 'once' ? await fbGet('yedekOnce/veri') : await fbGet('yedek/' + k);
+    const data = blob == null ? null : await cDec(blob);
+    if (!data || !Array.isArray(data.entries)) throw new Error('Yedek okunamadı');
+    localFileBackup('uretim-takip-geri-yukleme-oncesi');
+    await cloudBackupOnce();
+    await mfLoadPayload({users: null, data, savedAt: Date.now()});
+    CS.replace = true; lsPut(DIRTY_KEY, 1); lsPut(LOCAL_AT_KEY, Date.now());
+    await cloudSync();
+    if (MF.state !== 'ok') throw new Error(MF.err || 'bulut yazılamadı');
+    await notify('Geri yükleme tamamlandı.'); renderCloudBackups();
+  } catch(e) { await notify('Geri yükleme başarısız: ' + (e.message || e)); }
 }
 const cloudHandle = {name: 'Bulut (Firebase)', cloud: true, async queryPermission() { return 'granted'; }, async requestPermission() { return 'granted'; }};
 async function mfCreateCloud(pw) {
@@ -5237,7 +5348,9 @@ $('hrClear').onclick = async () => {
       CLOUD_MODE = true;
       const g = await cloudGate();
       if (g === 'new') { NEWFILE = true; showScreen('setupScreen'); return; }
-      if (g === 'local') {   // internetsiz devam: bulut modu açık kalır, bağlantı gelince bekleyen değişiklikler kendiliğinden yazılır
+      if (g === 'local') {   // internetsiz devam: önce uyarı; bağlantı gelince yönetici onayı olmadan bulut verisi değişmez
+        if (!(await askYes('ÇEVRİMDIŞI MOD\n\nİnternet bağlantısı yok. Girdiğiniz veriler yalnızca bu bilgisayara kaydedilecek.\n\nİnternet geldiğinde bu verinin buluta aktarılması için yönetici (ana) şifresiyle onay vermeniz gerekecek.\n\nDevam etmek için "Evet"i seçin. Onaylamazsanız sayfa kapatılır.'))) { closePage(); return; }
+        offSet(true);
         try { const b = await idbDo('meta', 'readonly', s => s.get('fbb')); if (b && b.last) { CS.last = new Map(b.last); CS.stamps = b.stamps || {genel: 0, aylar: {}}; } } catch(e) {}
         MF.h = cloudHandle; MF.state = 'err'; MF.err = 'bağlantı yok';
       }
