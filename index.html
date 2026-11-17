@@ -12,7 +12,7 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;bac
 .hide{display:none!important}
 html.uiauto{--afs:clamp(10px,.66vw,16px);--fs:var(--afs);--rh:calc(var(--afs)*2.35);--ch:clamp(62px,calc(var(--afs)*5.6),96px);--stkH:0px;--fltH:0px}
 html.uiauto table.xl{min-width:0}
-html.uiauto .skgrid{grid-template-columns:repeat(auto-fill,minmax(clamp(110px,9.5vw,230px),1fr))}
+html.uiauto .skgrid{grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px}
 html.uiauto .skcard{width:auto}
 #tab-takip>.card:first-child{position:sticky;top:var(--hdrH);z-index:15;padding:8px 10px;margin-bottom:8px;border-radius:0 0 10px 10px}
 #tab-takip>.card:first-child h2{display:none}
@@ -1851,6 +1851,7 @@ function renderStockCards() {
       <div class="skkg">${fmt(r*bw(s))} kg</div>
     </div>`;
   }).join('');
+  requestAnimationFrame(fitCards);
 }
 function renderTop() {
   renderStockCards();
@@ -5392,6 +5393,18 @@ Object.keys(uiIds).forEach(k => {
 $('uiReset').onclick = () => { Object.assign(UI, UI_DEF); uiFill(); uiApply(true); };
 $('uiAuto').onchange = () => { UI.auto = $('uiAuto').checked; uiApply(true); uiFill(); };
 function uiStackH() { const cs = getComputedStyle(document.documentElement), n = p => parseFloat(cs.getPropertyValue(p)) || 0, th = document.querySelector('table.xl thead'); return n('--hdrH') + n('--stkH') + n('--fltH') + (th ? th.offsetHeight : 0); }
+function fitCards() {   // tüm stok kartlarında her satır yazısı kutuya tek satır sığacak en büyük ortak boyuta ayarlanır
+  const box = $('stockCards'); if (!box || !box.offsetWidth) return;
+  ['sklbl', 'skmat', 'skval', 'skkg'].forEach(cls => {
+    const els = [...box.querySelectorAll('.' + cls)]; if (!els.length) return;
+    els.forEach(e => { e.style.fontSize = ''; });
+    let min = Infinity;
+    els.forEach(e => { let fs = parseFloat(getComputedStyle(e).fontSize), n = 0; while (e.scrollWidth > e.clientWidth + 0.5 && fs > 5 && n++ < 80) { fs -= 0.5; e.style.fontSize = fs + 'px'; } min = Math.min(min, fs); });
+    els.forEach(e => { e.style.fontSize = min + 'px'; });
+  });
+}
+try { new ResizeObserver(() => fitCards()).observe($('stockCards')); } catch(e) {}
+window.addEventListener('resize', () => fitCards());
 function lastRow() { let last = null; document.querySelectorAll('#entBody tr[data-id]').forEach(tr => { const e = entById(tr.dataset.id); if (e && !isBlank(e)) last = tr; }); return last; }
 function goLast(smooth) { const tr = lastRow(); if (!tr) { window.scrollTo({top: 0, behavior: smooth ? 'smooth' : 'auto'}); return; } tr.scrollIntoView({block: 'center', behavior: smooth ? 'smooth' : 'auto'}); }
 let _tlRaf = 0;
