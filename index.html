@@ -10,8 +10,17 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx);font-size:15px}
 .hide{display:none!important}
+html.uiauto{--afs:clamp(10px,.66vw,16px);--fs:var(--afs);--rh:calc(var(--afs)*2.35);--ch:clamp(62px,calc(var(--afs)*5.6),96px);--stkH:0px;--fltH:0px}
+html.uiauto table.xl{min-width:0}
+html.uiauto .skgrid{grid-template-columns:repeat(auto-fill,minmax(clamp(110px,9.5vw,230px),1fr))}
+html.uiauto .skcard{width:auto}
+#tab-takip>.card:first-child{position:sticky;top:var(--hdrH);z-index:15;padding:8px 10px;margin-bottom:8px;border-radius:0 0 10px 10px}
+#tab-takip>.card:first-child h2{display:none}
+html.uiauto #tab-takip .tw{overflow:visible}
+#tab-takip .filter-bar{position:sticky;top:calc(var(--hdrH) + var(--stkH));z-index:12;margin-bottom:0;border-radius:8px 8px 0 0;box-shadow:0 2px 0 var(--card)}
+html.uiauto table.xl thead th{position:sticky;top:calc(var(--hdrH) + var(--stkH) + var(--fltH));z-index:4;box-shadow:inset 0 -1px 0 #c5cdd9}
 #hdr{position:sticky;top:0;z-index:20;background:var(--bg)}
-#top{background:#101826;color:#fff;display:flex;align-items:stretch;gap:8px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+#top{background:#101826;color:#fff;display:flex;align-items:stretch;gap:8px;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 #top .lbl{font-size:11px;letter-spacing:.06em;color:#9fb0c8;align-self:center;white-space:nowrap}
 #chips{display:flex;gap:8px;overflow-x:auto;flex:1;padding-bottom:2px}
 .chip{flex:0 0 auto;background:#1b2740;border:1px solid #2b3a58;border-radius:8px;padding:5px 10px;font-size:13px;line-height:1.25;white-space:nowrap}
@@ -81,11 +90,11 @@ details summary{cursor:pointer;font-weight:600;color:var(--mut)}
 .skgrid{display:grid;grid-template-columns:repeat(auto-fill,var(--cw));gap:8px;justify-content:start}
 .skcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:0 3mm;box-shadow:0 1px 2px rgba(0,0,0,.04);width:var(--cw);height:var(--ch);container-type:size;display:flex;flex-direction:column;justify-content:space-evenly;overflow:hidden}
 .skcard>div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
-.skcard .sklbl{font-size:11px;font-size:min(13cqh,8cqw);color:var(--mut);font-weight:600}
-.skcard .skmat{font-size:11px;font-size:min(13cqh,8cqw);color:var(--pri);font-weight:700}
-.skcard .skval{font-size:22px;font-size:min(30cqh,17cqw);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.skcard .sklbl{font-size:11px;font-size:max(8.5px,min(13cqh,8cqw));color:var(--mut);font-weight:600}
+.skcard .skmat{font-size:11px;font-size:max(8.5px,min(13cqh,8cqw));color:var(--pri);font-weight:700}
+.skcard .skval{font-size:22px;font-size:max(11px,min(30cqh,17cqw));font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .skcard .skval small{font-size:.55em;color:var(--mut);font-weight:400}
-.skcard .skkg{font-size:12px;font-size:min(13cqh,8cqw);color:var(--mut);font-variant-numeric:tabular-nums}
+.skcard .skkg{font-size:12px;font-size:max(8.5px,min(13cqh,8cqw));color:var(--mut);font-variant-numeric:tabular-nums}
 .skcard.low{background:var(--redbg);border-color:#fda29b;animation:pulse 1.6s infinite}
 .skcard.low .sklbl,.skcard.low .skkg,.skcard.low .skmat{color:#912018}
 .skcard.low .skval{color:var(--red)}
@@ -356,8 +365,8 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
 <div id="app" class="hide">
 <div id="hdr">
 <div id="top">
-  <div class="lbl">KALAN<br>STOK</div>
-  <div id="chips"></div>
+  <div class="lbl" style="flex:1;align-self:center;font-size:13px;font-weight:700;letter-spacing:.1em">ÜRETİM TAKİP</div>
+  <div id="chips" style="display:none"></div>
   <div id="userBox">
     <span id="netStat" class="ok hide" title="Sunucu bağlantısı">● Canlı</span>
     <span id="fileChip" class="hide"></span>
@@ -744,6 +753,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
     <div id="subtab-genel" class="hide">
       <div class="card">
         <h2>🖥 Görünüm (yalnızca bu bilgisayar)</h2>
+        <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="uiAuto"> Ekrana otomatik sığdır (önerilen): tablo yazısı, satır yüksekliği ve stok kutuları ekran genişliğine göre kendiliğinden ayarlanır</label>
         <div class="grid">
           <div><label>Tablo yazı boyutu (mm)</label><input id="uiFs" inputmode="decimal"></div>
           <div><label>Tablo satır yüksekliği (mm)</label><input id="uiRh" inputmode="decimal"></div>
@@ -1184,7 +1194,7 @@ function applyColWidths(override) {
   const table = document.querySelector('table.xl');
   if (!table || !S || !S.settings) return;
   const keys = visibleColKeys(), w = Object.assign(colWeights(), override || {});
-  table.style.minWidth = Math.round(keys.reduce((a, k) => a + (DEFAULT_COL_WIDTHS[k] || 100), 0) * 0.85 * (+getComputedStyle(document.documentElement).getPropertyValue('--k') || 1)) + 'px';
+  table.style.minWidth = document.documentElement.classList.contains('uiauto') ? '0px' : Math.round(keys.reduce((a, k) => a + (DEFAULT_COL_WIDTHS[k] || 100), 0) * 0.85 * (+getComputedStyle(document.documentElement).getPropertyValue('--k') || 1)) + 'px';
   const tot = keys.reduce((a, k) => a + w[k], 0) || 1;
   table.querySelectorAll('colgroup col').forEach(col => {
     const k = col.dataset.col; if (!k) return;
@@ -1199,7 +1209,6 @@ function initColumnResize() {
   const headers = table.querySelectorAll('thead th');
   headers.forEach(th => {
     th.querySelectorAll('.col-resize-handle').forEach(el => el.remove());
-    th.style.position = 'relative';
     if (!isAdmin) return;
     const handle = document.createElement('div');
     handle.className = 'col-resize-handle';
@@ -5359,16 +5368,21 @@ $('hrClear').onclick = async () => {
 
 
 /* ====== Görünüm (bu bilgisayar): yazı/satır/kutu ölçüleri (mm), sabit üst menü, son satıra git ====== */
-const UI_KEY = 'urunTakip_ui', UI_DEF = {fs: 3.7, rh: 8.5, cw: 42, ch: 21}, UI_LIM = {fs: [2.2, 8], rh: [4, 20], cw: [20, 120], ch: [10, 60]};
-const UI = Object.assign({}, UI_DEF); try { const j = JSON.parse(localStorage.getItem(UI_KEY) || '{}'); Object.keys(UI_DEF).forEach(k => { if (+j[k] > 0) UI[k] = Math.min(UI_LIM[k][1], Math.max(UI_LIM[k][0], +j[k])); }); } catch(e) {}
+const UI_KEY = 'urunTakip_ui', UI_DEF = {fs: 3.7, rh: 8.5, cw: 42, ch: 21, auto: true}, UI_LIM = {fs: [2.2, 8], rh: [4, 20], cw: [20, 120], ch: [10, 60]};
+const UI = Object.assign({}, UI_DEF); try { const j = JSON.parse(localStorage.getItem(UI_KEY) || '{}'); if (j.auto === false) UI.auto = false; ['fs', 'rh', 'cw', 'ch'].forEach(k => { if (+j[k] > 0) UI[k] = Math.min(UI_LIM[k][1], Math.max(UI_LIM[k][0], +j[k])); }); } catch(e) {}
+const uiIds = {fs: 'uiFs', rh: 'uiRh', cw: 'uiCw', ch: 'uiCh'};
 function uiApply(save) {
   const r = document.documentElement.style;
-  r.setProperty('--fs', UI.fs + 'mm'); r.setProperty('--rh', UI.rh + 'mm'); r.setProperty('--cw', UI.cw + 'mm'); r.setProperty('--ch', UI.ch + 'mm'); r.setProperty('--k', (UI.fs / UI_DEF.fs).toFixed(3));
+  document.documentElement.classList.toggle('uiauto', !!UI.auto);
+  if (UI.auto) { ['--fs', '--rh', '--cw', '--ch'].forEach(p => r.removeProperty(p)); r.setProperty('--k', '1'); }
+  else { r.setProperty('--fs', UI.fs + 'mm'); r.setProperty('--rh', UI.rh + 'mm'); r.setProperty('--cw', UI.cw + 'mm'); r.setProperty('--ch', UI.ch + 'mm'); r.setProperty('--k', (UI.fs / UI_DEF.fs).toFixed(3)); }
+  Object.values(uiIds).forEach(id => { const el = $(id); if (el) el.disabled = !!UI.auto; });
+  if ($('uiAuto')) $('uiAuto').checked = !!UI.auto;
   if (save) { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch(e) {} }
   try { applyColWidths(); } catch(e) {}
   uiToLastUpdate();
 }
-const uiIds = {fs: 'uiFs', rh: 'uiRh', cw: 'uiCw', ch: 'uiCh'};
+
 function uiFill() { Object.keys(uiIds).forEach(k => { const el = $(uiIds[k]); if (el && document.activeElement !== el) el.value = String(UI[k]).replace('.', ','); }); }
 Object.keys(uiIds).forEach(k => {
   const el = $(uiIds[k]); if (!el) return;
@@ -5376,6 +5390,8 @@ Object.keys(uiIds).forEach(k => {
   el.addEventListener('input', () => take(false)); el.addEventListener('change', () => take(true)); el.addEventListener('blur', () => take(true));
 });
 $('uiReset').onclick = () => { Object.assign(UI, UI_DEF); uiFill(); uiApply(true); };
+$('uiAuto').onchange = () => { UI.auto = $('uiAuto').checked; uiApply(true); uiFill(); };
+function uiStackH() { const cs = getComputedStyle(document.documentElement), n = p => parseFloat(cs.getPropertyValue(p)) || 0, th = document.querySelector('table.xl thead'); return n('--hdrH') + n('--stkH') + n('--fltH') + (th ? th.offsetHeight : 0); }
 function lastRow() { let last = null; document.querySelectorAll('#entBody tr[data-id]').forEach(tr => { const e = entById(tr.dataset.id); if (e && !isBlank(e)) last = tr; }); return last; }
 function goLast(smooth) { const tr = lastRow(); if (!tr) { window.scrollTo({top: 0, behavior: smooth ? 'smooth' : 'auto'}); return; } tr.scrollIntoView({block: 'center', behavior: smooth ? 'smooth' : 'auto'}); }
 let _tlRaf = 0;
@@ -5385,13 +5401,17 @@ function uiToLastUpdate() {
     const b = $('toLast'); if (!b) return;
     const tk = $('tab-takip'), tr = (tk && !tk.classList.contains('hide') && !$('app').classList.contains('hide')) ? lastRow() : null;
     if (!tr) { b.classList.add('hide'); return; }
-    const rc = tr.getBoundingClientRect(), hh = $('hdr').offsetHeight;
+    const rc = tr.getBoundingClientRect(), hh = uiStackH();
     b.classList.toggle('hide', !(rc.top > window.innerHeight - 30 || rc.bottom < hh + 10));
   });
 }
 $('toLast').onclick = () => goLast(true);
 window.addEventListener('scroll', uiToLastUpdate, {passive: true}); window.addEventListener('resize', uiToLastUpdate);
-try { new ResizeObserver(() => document.documentElement.style.setProperty('--hdrH', $('hdr').offsetHeight + 'px')).observe($('hdr')); } catch(e) {}
+try {
+  const ro = new ResizeObserver(() => { const r = document.documentElement.style, sc = document.querySelector('#tab-takip>.card'), fb = document.querySelector('.filter-bar');
+    r.setProperty('--hdrH', $('hdr').offsetHeight + 'px'); r.setProperty('--stkH', (sc ? sc.getBoundingClientRect().height : 0) + 'px'); r.setProperty('--fltH', (fb ? fb.getBoundingClientRect().height : 0) + 'px'); uiToLastUpdate(); });
+  [$('hdr'), document.querySelector('#tab-takip>.card'), document.querySelector('.filter-bar')].forEach(el => el && ro.observe(el));
+} catch(e) {}
 var _autoLast = true;
 uiApply(false); uiFill();
 /* ====== Başlangıç ====== */
