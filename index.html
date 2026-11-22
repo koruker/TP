@@ -154,6 +154,7 @@ table.xl input{border:0;border-radius:0;background:transparent;padding:0 8px;hei
 table.xl input:focus{outline:2px solid var(--pri);outline-offset:-2px;background:#fff;border:0}
 table.xl input.bad{background:var(--redbg);color:var(--red)}
 table.xl tr.sep td{background:#d5dce7;height:26px;padding:0}
+table.xl tr.shiftsep td{background:#eaeef4;height:var(--rh)}
 .xbtn{border:0;background:transparent;color:#a3adbb;font-size:var(--fs);height:var(--rh);width:100%}
 .xbtn:hover{color:var(--red);background:var(--redbg)}
 table.xl td.tg input{text-align:center;font-variant-numeric:tabular-nums}
@@ -2901,17 +2902,18 @@ function rowHtml(e, i, info) {
 }
 function refreshSeps() {
   body.querySelectorAll('tr.sep').forEach(r=>r.remove());
-  let prev = null;
+  let prev = null, prevSh = null;
   const span = visibleColCount();
   body.querySelectorAll('tr[data-id]').forEach(tr=>{
     const e = entById(tr.dataset.id); if (!e||!e.date) return;
-    const wk = weekKey(e.date);
-    if (prev && wk!==prev) {
-      const s = document.createElement('tr'); s.className='sep';
+    const wk = weekKey(e.date), sh = e.date + '|' + (e.shift || '') + '|' + (e.team || '');
+    const weekChange = prev && wk!==prev, shiftChange = prevSh !== null && sh!==prevSh;
+    if (weekChange || shiftChange) {
+      const s = document.createElement('tr'); s.className = weekChange ? 'sep' : 'sep shiftsep';
       s.innerHTML = '<td colspan="' + span + '"></td>';
       tr.parentNode.insertBefore(s, tr);
     }
-    prev = wk;
+    prev = wk; prevSh = sh;
   });
 }
 
@@ -3160,7 +3162,7 @@ function applyField(inp, commit) {
   }
   if (!isBlank(en)) { if (wasBlank) autofill(en); else if (!en.date && f!=='date') en.date = today(); }
   syncRow(tr, en, inp);
-  if (f==='date' || wasBlank) refreshSeps();
+  if (f==='date' || f==='shift' || f==='team' || wasBlank) refreshSeps();
   afterChange();
   if (commit && en.code && en.qty) {
     const p = prodByCode(en.code);
