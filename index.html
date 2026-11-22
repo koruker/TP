@@ -98,6 +98,20 @@ details summary{cursor:pointer;font-weight:600;color:var(--mut)}
 .skcard.low{background:var(--redbg);border-color:#fda29b;animation:pulse 1.6s infinite}
 .skcard.low .sklbl,.skcard.low .skkg,.skcard.low .skmat{color:#912018}
 .skcard.low .skval{color:var(--red)}
+body:not(.is-adm) .adm{display:none!important}
+.np-stokGor #tab-takip>.card:first-child{display:none!important}
+.np-stokTab .subtab[data-subtab=stok],.np-stokTab #subtab-stok{display:none!important}
+.np-stokGelis #stockBody [data-act=arr]{display:none}
+.np-stokDuzenle #stockBody [data-act=edit],.np-stokDuzenle #stockBody [data-act=del]{display:none}
+.np-stokForm #subtab-stok>.card:first-child{display:none}
+.np-urunTab .subtab[data-subtab=urun],.np-urunTab #subtab-urun{display:none!important}
+.np-urunEkle #subtab-urun>.card:first-child{display:none}
+.np-urunDuzenle #prodBody [data-act=pdel]{display:none}
+.np-urunDuzenle #prodBody input,.np-urunDuzenle #prodBody select{pointer-events:none;opacity:.75}
+.np-diger .subtab[data-subtab=makine],.np-diger .subtab[data-subtab=malzeme],.np-diger .subtab[data-subtab=vardiya-duzeni],.np-diger .subtab[data-subtab=vardiya],.np-diger #subtab-makine,.np-diger #subtab-malzeme,.np-diger #subtab-vardiya-duzeni,.np-diger #subtab-vardiya{display:none!important}
+.np-takip .tab[data-tab=takip]{display:none}
+.np-takipYaz #selBar,.np-takipYaz #tab-takip table.xl .xbtn,.np-takipYaz #tab-takip table.xl .calbtn{display:none}
+.permGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px 14px;margin:6px 0}
 #toLast{position:fixed;right:16px;bottom:18px;z-index:30;background:var(--pri);color:#fff;border:0;border-radius:22px;padding:11px 16px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.3)}
 #toLast:hover{background:#1858c0}
 .sk-empty{padding:16px;text-align:center;color:var(--mut);font-size:13px}
@@ -560,10 +574,10 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
         <button class="subtab" data-subtab="malzeme">🧪 Malzeme Türleri</button>
         <button class="subtab" data-subtab="vardiya-duzeni">🕐 Vardiya Düzeni</button>
         <button class="subtab" data-subtab="vardiya">👷 Vardiya ve Operatörler</button>
-        <button class="subtab" data-subtab="kullanici">👥 Kullanıcılar</button>
-        <button class="subtab" data-subtab="audit">📜 Hareket Dökümü</button>
-        <button class="subtab" data-subtab="genel">⚙️ Genel</button>
-        <button class="subtab" data-subtab="yedek">💾 Yedek</button>
+        <button class="subtab adm" data-subtab="kullanici">👥 Kullanıcılar</button>
+        <button class="subtab adm" data-subtab="audit">📜 Hareket Dökümü</button>
+        <button class="subtab adm" data-subtab="genel">⚙️ Genel</button>
+        <button class="subtab adm" data-subtab="yedek">💾 Yedek</button>
       </div>
     </div>
 
@@ -710,7 +724,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
       </div>
     </div>
 
-    <div id="subtab-kullanici" class="hide">
+    <div id="subtab-kullanici" class="hide adm">
       <div class="card">
         <h2>Yeni kullanıcı</h2>
         <div class="grid">
@@ -720,17 +734,21 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
           <div id="uPwBox" class="hide"><label>Kullanıcı şifresi</label><input id="uPw" type="password" autocomplete="new-password" placeholder="en az 4 karakter"></div>
           <div><button class="btn" id="uAdd" style="width:100%">Kullanıcı ekle</button></div>
         </div>
+        <div id="uPermWrap"><label style="margin-top:8px;display:block">Yetkiler <small style="color:var(--mut)">(yönetici seçilirse hepsi açıktır)</small></label>
+          <div id="uPermBox" class="permGrid"></div>
+          <div class="row"><button class="btn sec sm" type="button" id="uPermAll">Hepsini seç</button><button class="btn sec sm" type="button" id="uPermNone">Hiçbirini seçme</button></div>
+        </div>
       </div>
       <div class="card">
         <h2>Kullanıcılar</h2>
         <div class="tw"><table>
-          <thead><tr><th>Kullanıcı</th><th>Rol</th><th>Şifre</th><th>Oluşturma</th><th></th></tr></thead>
+          <thead><tr><th>Kullanıcı</th><th>Rol</th><th>Yetkiler</th><th>Şifre</th><th>Oluşturma</th><th></th></tr></thead>
           <tbody id="usersBody"></tbody>
         </table></div>
       </div>
     </div>
 
-    <div id="subtab-audit" class="hide">
+    <div id="subtab-audit" class="hide adm">
       <div class="card">
         <h2>📜 Hareket Dökümü</h2>
         <div class="row" style="margin-top:10px">
@@ -750,7 +768,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
       </div>
     </div>
 
-    <div id="subtab-genel" class="hide">
+    <div id="subtab-genel" class="hide adm">
       <div class="card">
         <h2>🖥 Görünüm (yalnızca bu bilgisayar)</h2>
         <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="uiAuto"> Ekrana otomatik sığdır (önerilen): tablo yazısı, satır yüksekliği ve stok kutuları ekran genişliğine göre kendiliğinden ayarlanır</label>
@@ -779,7 +797,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
         </div>
         <label class="chk"><input type="checkbox" id="sHideYield"> Verim kolonunu normal kullanıcılardan gizle</label>
         <div class="hint">
-          İşaretliyse Verim sütunu yalnızca yönetici girişinde görünür. İşaretli değilse tüm kullanıcılar görür.
+          Yöneticiler Verim sütununu her zaman görür. İşaretliyse, kendisine ayrıca verim yetkisi verilmemiş normal kullanıcılar göremez; işaretli değilse görürler. Tek tek kullanıcı için Ayarlar › Kullanıcılar › Yetkiler'den değiştirebilirsiniz.
           <b>Verim Analizi</b> sekmesi her koşulda yalnızca yöneticilere açıktır.
         </div>
       </div>
@@ -806,7 +824,7 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
       </div>
     </div>
 
-    <div id="subtab-yedek" class="hide">
+    <div id="subtab-yedek" class="hide adm">
       <div class="card admin-only" id="cbCard">
         <h2>☁ Bulut yedekleri</h2>
         <div class="hint" style="margin-top:0">Her gün buluta otomatik 1 yedek alınır; son 7 gün tutulur, 8. yedekte en eskisi buluttan silinir. Geri yüklemek için yönetici şifresi gerekir.</div>
@@ -909,6 +927,14 @@ table.xl td.ver.na{color:var(--mut);font-weight:400;background:#fafbfd}
   <div class="modalCard">
     <p id="alMsg" style="white-space:pre-line;font-size:15px;margin:0 0 14px"></p>
     <div class="row" style="margin-top:0"><button class="btn" id="alOk">Tamam</button></div>
+  </div>
+</div>
+<div id="permModal" class="modal hide">
+  <div class="modalCard">
+    <h3 style="margin:0 0 6px">Yetkiler: <span id="permWho"></span></h3>
+    <div id="permBox" class="permGrid"></div>
+    <div class="row"><button class="btn sec sm" type="button" id="permAll">Hepsini seç</button><button class="btn sec sm" type="button" id="permNone">Hiçbirini seçme</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="permSave">Kaydet</button><button class="btn sec" id="permCancel">Vazgeç</button></div>
   </div>
 </div>
 <div id="offModal" class="modal hide">
@@ -1157,12 +1183,12 @@ function yieldCellHtml(e) {
 function visibleColCount() {
   const isAdmin = currentUser && currentUser.role === 'admin';
   const hid = V2READY ? hiddenCols() : new Set();
-  const showV = (isAdmin || !S.settings.hideYield) && !hid.has('ver');
+  const showV = canYield() && !hid.has('ver');
   return 14 - (showV ? 0 : 1) - COLDEFS_N(hid);
 }
 function applyYieldVisibility() {
   const isAdmin = currentUser && currentUser.role === 'admin';
-  const show = isAdmin || !S.settings.hideYield;
+  const show = canYield();
   document.querySelectorAll('.ver-col').forEach(el => el.classList.toggle('hide', !show));
   applyColWidths();
   if (V2READY) applyColVisibility();
@@ -1179,7 +1205,7 @@ const DEFAULT_COL_WIDTHS = {
 
 function visibleColKeys() {
   const isAdmin = currentUser && currentUser.role === 'admin';
-  const showYield = isAdmin || !S.settings.hideYield;
+  const showYield = canYield();
   const hid = (typeof V2READY !== 'undefined' && V2READY) ? hiddenCols() : new Set();
   return [...document.querySelectorAll('table.xl colgroup col')].map(c => c.dataset.col).filter(k => k && !hid.has(k) && !(k === 'ver' && !showYield));
 }
@@ -1265,6 +1291,58 @@ function startColResize(ev, th, table) {
   document.addEventListener('mouseup', onUp);
 }
 
+
+/* ===========================================================
+   YETKİLER (kullanıcı başına). Yönetici = hepsi. Normal kullanıcıda u.perm yoksa varsayılanlar geçerli.
+   =========================================================== */
+const PERMS = [
+  ['takip',      'Üretim Takip sayfasına erişim', true],
+  ['takipYaz',   'Üretim satırı girme / düzenleme / silme', true],
+  ['verim',      'Verim sütununu görme', null],
+  ['stokGor',    'Stok kartlarını görme (Üretim Takip sayfasında)', true],
+  ['stokEkle',   'Yeni stok ekleme', false],
+  ['stokDuzenle','Stok düzenleme / silme', false],
+  ['stokGelis',  'Stoğa geliş (+ Geliş) girme', false],
+  ['urunEkle',   'Ürün kodu ekleme', false],
+  ['urunDuzenle','Ürün kodunu düzeltme / silme', false],
+  ['diger',      'Makine, malzeme, vardiya ve operatör ayarları', false]
+];
+const permDefault = k => { const d = PERMS.find(p => p[0] === k); return d && d[2] === null ? !(S && S.settings && S.settings.hideYield) : !!(d && d[2]); };
+function can(k, u) {
+  u = u || currentUser; if (!u) return false;
+  if (u.role === 'admin') return true;
+  if (u === currentUser && typeof isAdminSess === 'function' && isAdminSess() && k !== 'verim') return true;   // ana şifreyle yükseltilmiş oturum
+  const p = u.perm; return p && typeof p[k] === 'boolean' ? p[k] : permDefault(k);
+}
+const canYield = u => can('verim', u);
+function applyPerms() {
+  const b = document.body, c = (k, deny) => b.classList.toggle('np-' + k, !!deny);
+  PERMS.forEach(p => c(p[0], !can(p[0])));
+  c('stokTab', !(can('stokEkle') || can('stokDuzenle') || can('stokGelis')));
+  c('stokForm', !(can('stokEkle') || can('stokDuzenle')));
+  c('urunTab', !(can('urunEkle') || can('urunDuzenle')));
+  b.classList.toggle('is-adm', !!(currentUser && (currentUser.role === 'admin' || isAdminSess())));
+  roGrid();
+  try { applyYieldVisibility(); } catch(e) {}
+}
+const hasSettingsPerm = () => ['stokEkle', 'stokDuzenle', 'stokGelis', 'urunEkle', 'urunDuzenle', 'diger'].some(k => can(k));
+function roGrid() {
+  const ro = !can('takipYaz');
+  document.querySelectorAll('#entBody input').forEach(i => { i.readOnly = ro; });
+  document.querySelectorAll('#entBody select').forEach(i => { i.disabled = ro; });
+}
+try { new MutationObserver(() => { if (currentUser && !can('takipYaz')) roGrid(); }).observe(document.getElementById('entBody'), {childList: true, subtree: true}); } catch(e) {}
+function denied(k) { if (can(k)) return false; toast('Bu işlem için yetkiniz yok.'); return true; }
+['input', 'change', 'paste', 'cut'].forEach(ev => document.getElementById('entBody').addEventListener(ev, e => { if (!can('takipYaz')) { e.stopImmediatePropagation(); e.preventDefault(); } }, true));
+document.getElementById('entBody').addEventListener('keydown', e => { if (!can('takipYaz') && !/^(Arrow|Tab|Home|End|Page|Shift|Control|Meta|Alt|Escape)/.test(e.key) && !((e.ctrlKey || e.metaKey) && /^[cax]$/i.test(e.key))) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+document.getElementById('entBody').addEventListener('click', e => { if (!can('takipYaz') && e.target.closest('.xbtn, .calbtn')) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+const PERM_PRESET_ALL = () => Object.fromEntries(PERMS.map(p => [p[0], true]));
+function permBoxHtml(perm, idp) {
+  return PERMS.map(p => { const v = perm && typeof perm[p[0]] === 'boolean' ? perm[p[0]] : permDefault(p[0]); return `<label class="chk"><input type="checkbox" data-perm="${p[0]}" ${v ? 'checked' : ''}> ${esc(p[1])}</label>`; }).join('');
+}
+const readPerm = box => { const o = {}; box.querySelectorAll('input[data-perm]').forEach(i => { o[i.dataset.perm] = i.checked; }); return o; };
+const permCount = u => u.role === 'admin' ? PERMS.length : PERMS.filter(p => can(p[0], u)).length;
+
 function applyRoleUI() {
   const isAdmin = currentUser && currentUser.role === 'admin';
   document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hide', !isAdmin));
@@ -1273,6 +1351,7 @@ function applyRoleUI() {
     if (v && !v.classList.contains('hide')) showTab('takip');
   }
   initColumnResize();
+  applyPerms();
 }
 
 const newEntry = () => ({id:uid(), target:0, machine:'', code:'', qty:0, date:'', shift:'', team:'', op:'', note:''});
@@ -1910,6 +1989,7 @@ function resetForm() {
 }
 $('fCancel').onclick = () => { resetForm(); renderStocks(); };
 $('fSave').onclick = () => {
+  if (denied(editId ? 'stokDuzenle' : 'stokEkle')) return;
   if (isCountM(matById($('fMat').value))) {   // adet takibi malzemesi: çap/boy/ağırlık gerekmez
     const qty = num($('fQty').value);
     if (qty < 0) { alert('Adet negatif olamaz.'); return; }
@@ -2036,8 +2116,9 @@ $('stockBody').onclick = async e => {
   const b = e.target.closest('button, .stLink'); if (!b) return;
   const s = stockById(b.dataset.id); if (!s) return;
   if (b.dataset.act==='hist') { openStockHist(s); }
-  else if (b.dataset.act==='arr') { openArrival(s); }
+  else if (b.dataset.act==='arr') { if (denied('stokGelis')) return; openArrival(s); }
   else if (b.dataset.act==='edit') {
+    if (denied('stokDuzenle')) return;
     editId = s.id; manualW = !!(s.wManual&&s.w>0); last='qty';
     fillMatSelect();
     $('fMat').value = s.matId && matById(s.matId) ? s.matId : '';
@@ -2052,6 +2133,7 @@ $('stockBody').onclick = async e => {
     renderStocks();
     window.scrollTo({top:0,behavior:'smooth'});
   } else if (b.dataset.act==='del') {
+    if (denied('stokDuzenle')) return;
     const n = S.products.filter(p=>p.stockId===s.id).length;
     if ((await askYes(label(s)+' silinsin mi?'+(n?'\n'+n+' ürün kodu bağlantılı.':'')))) {
       const info = label(s);
@@ -2108,6 +2190,7 @@ function updateProdRow(tr) {
   tr.querySelector('[data-c=use]').innerHTML = (s && !isCountS(s)) ? `${fmt(ub)} çubuk · ${fmt(ub*bw(s))} kg` : '—';
 }
 $('prodBody').addEventListener('input', e=>{
+  if (!can('urunDuzenle')) { e.stopImmediatePropagation(); return; }
   const tr = e.target.closest('tr[data-id]'); if (!tr) return;
   const f = e.target.dataset.f, p = prodById(tr.dataset.id); if (!p) return;
   if (f==='raw') p.raw = num(e.target.value);
@@ -2119,11 +2202,13 @@ $('prodBody').addEventListener('input', e=>{
   afterChange();
 });
 $('prodBody').addEventListener('change', e=>{
+  if (!can('urunDuzenle')) { e.stopImmediatePropagation(); return; }
   const tr = e.target.closest('tr[data-id]'); if (!tr || e.target.dataset.f!=='stock') return;
   prodById(tr.dataset.id).stockId = e.target.value; afterChange(); renderProducts();
 });
 $('prodBody').addEventListener('click', async e=>{
   const b = e.target.closest('button'); if (!b) return;
+  if (denied('urunDuzenle')) return;
   const p = prodById(b.closest('tr[data-id]').dataset.id); if (!p) return;
   if ((await askYes(p.code+' ürün kodu silinsin mi?'))) {
     logAction('ürün_sil', p.code);
@@ -2132,6 +2217,7 @@ $('prodBody').addEventListener('click', async e=>{
   }
 });
 $('pAdd').onclick = async () => {
+  if (denied('urunEkle')) return;
   const code = $('pCode').value.trim(), sid = $('pStock').value, raw = num($('pRaw').value);
   if (!code) { alert('Ürün kodu gir.'); return; }
   if (prodByCode(code)) { alert('Bu kod zaten var.'); return; }
@@ -2403,7 +2489,7 @@ $('teamAdd').onclick = () => {
 
 function renderUsers() {
   const b = $('usersBody');
-  if (!USERS || !USERS.users.length) { b.innerHTML = '<tr><td colspan="5" class="empty">Kullanıcı yok.</td></tr>'; return; }
+  if (!USERS || !USERS.users.length) { b.innerHTML = '<tr><td colspan="6" class="empty">Kullanıcı yok.</td></tr>'; return; }
   const adminCount = USERS.users.filter(u=>u.role==='admin').length;
   b.innerHTML = USERS.users.map(u=>{
     const isMe = u.id===currentUser.id;
@@ -2411,10 +2497,11 @@ function renderUsers() {
     return `<tr>
       <td><b>${esc(u.username)}</b>${isMe?' <span style="color:var(--mut);font-size:11px">(siz)</span>':''}</td>
       <td>${u.role==='admin'?'<b style="color:var(--pri)">Yönetici</b>':'Normal'}</td>
+      <td>${u.role==='admin' ? '<span style="color:var(--mut)">tümü</span>' : permCount(u)+' / '+PERMS.length}</td>
       <td>${u.role==='admin' ? '<span style="color:var(--mut)">ana şifre</span>' : (u.pw ? '🔒 var' : '<span style="color:var(--mut)">yok</span>')}</td>
       <td>${trDate(dstr(new Date(u.createdAt)))}</td>
       <td>
-        ${u.role!=='admin' ? `<button class="btn sm sec" data-act="upw" data-uid="${u.id}">${u.pw?'Şifre değiştir':'Şifre koy'}</button>${u.pw?` <button class="btn sm sec" data-act="upwdel" data-uid="${u.id}">Şifreyi kaldır</button>`:''} ` : ''}
+        ${u.role!=='admin' ? `<button class="btn sm" data-act="uperm" data-uid="${u.id}">Yetkiler</button> <button class="btn sm sec" data-act="upw" data-uid="${u.id}">${u.pw?'Şifre değiştir':'Şifre koy'}</button>${u.pw?` <button class="btn sm sec" data-act="upwdel" data-uid="${u.id}">Şifreyi kaldır</button>`:''} ` : ''}
         ${u.role==='admin'
           ? `<button class="btn sm sec" data-act="urole" data-uid="${u.id}" ${!canDemote?'disabled title="Son yönetici"':''}>Normal yap</button>`
           : `<button class="btn sm sec" data-act="urole" data-uid="${u.id}">Admin yap</button>`}
@@ -2426,6 +2513,7 @@ function renderUsers() {
 $('usersBody').addEventListener('click', async e=>{
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   const u = USERS.users.find(x=>x.id===b.dataset.uid); if (!u) return;
+  if (b.dataset.act==='uperm') { openPermModal(u); return; }
   if (b.dataset.act==='upw') {
     const p1 = await askPassword(u.pw ? 'Yeni şifre' : 'Şifre koy', u.username + ' için yeni şifre (en az 4 karakter)', true); if (!p1) return;
     if (p1.length < 4) { alert('En az 4 karakter.'); return; }
@@ -2463,14 +2551,34 @@ $('usersBody').addEventListener('click', async e=>{
     renderUsers();
   }
 });
+
+let permUser = null;
+function openPermModal(u) { permUser = u; $('permWho').textContent = u.username; $('permBox').innerHTML = permBoxHtml(u.perm); $('permModal').classList.remove('hide'); }
+$('permAll').onclick = () => $('permBox').querySelectorAll('input').forEach(i => i.checked = true);
+$('permNone').onclick = () => $('permBox').querySelectorAll('input').forEach(i => i.checked = false);
+$('permCancel').onclick = () => { $('permModal').classList.add('hide'); permUser = null; };
+$('permSave').onclick = () => {
+  const u = permUser; if (!u) return; u.perm = readPerm($('permBox'));
+  $('permModal').classList.add('hide'); permUser = null;
+  persistUsers();
+  const txt = PERMS.filter(p => u.perm[p[0]]).map(p => p[0]).join(', ') || 'hiçbiri';
+  logAction('rol_değiştir', u.username + ' yetkileri: ' + txt); logAct('Kullanıcı', u.username + ' yetkileri güncellendi: ' + txt);
+  if (currentUser && u.id === currentUser.id) { currentUser = u; applyPerms(); }
+  renderUsers(); toast('Yetkiler kaydedildi.');
+};
 const uPwSync = () => { const adm = $('uRole').value === 'admin'; if (adm) $('uPwMode').value = 'none'; $('uPwMode').disabled = adm; $('uPwBox').classList.toggle('hide', adm || $('uPwMode').value !== 'pw'); };
-$('uRole').onchange = $('uPwMode').onchange = uPwSync;
+const uPermFill = () => { $('uPermBox').innerHTML = permBoxHtml(null); $('uPermWrap').classList.toggle('hide', $('uRole').value === 'admin'); };
+$('uRole').onchange = () => { uPwSync(); uPermFill(); }; $('uPwMode').onchange = uPwSync;
+$('uPermAll').onclick = () => $('uPermBox').querySelectorAll('input').forEach(i => i.checked = true);
+$('uPermNone').onclick = () => $('uPermBox').querySelectorAll('input').forEach(i => i.checked = false);
+uPermFill();
 $('uAdd').onclick = async () => {
   const name = $('uName').value.trim();
   const role = $('uRole').value;
   if (!name || name.length<2) { alert('En az 2 karakter.'); return; }
   if (USERS.users.some(u=>normC(u.username)===normC(name))) { alert('Bu isimde kullanıcı var.'); return; }
   const rec = {id:uid(), username:name, role, createdAt:Date.now()};
+  if (role !== 'admin') rec.perm = readPerm($('uPermBox'));
   if (role !== 'admin' && $('uPwMode').value === 'pw') {
     const pw = $('uPw').value;
     if (pw.length < 4) { alert('Şifre en az 4 karakter olmalı.'); return; }
@@ -2480,7 +2588,7 @@ $('uAdd').onclick = async () => {
   persistUsers();
   logAct('Kullanıcı', 'Kullanıcı eklendi: '+name+' ('+(role==='admin'?'yönetici':'normal')+')');
   logAction('kullanıcı_ekle', name + ' (' + (role==='admin'?'Yönetici':'Normal') + ')');
-  $('uName').value=''; $('uRole').value='user'; $('uPw').value=''; $('uPwMode').value='none'; uPwSync();
+  $('uName').value=''; $('uRole').value='user'; $('uPw').value=''; $('uPwMode').value='none'; uPwSync(); uPermFill();
   renderUsers();
   toast('Kullanıcı eklendi.');
 };
@@ -3576,6 +3684,7 @@ function showTab(name) {
   updateAdminUI();
   if (name === 'hareket' && !(SERVER && isAdminSess())) name = 'takip';
   if (name === 'verim' && (!currentUser || currentUser.role !== 'admin')) name = 'takip';
+  if (name === 'takip' && !can('takip')) name = 'ayarlar';
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on', x.dataset.tab===name));
   ['takip','verim','ayarlar','hareket'].forEach(n=>$('tab-'+n).classList.toggle('hide', n!==name));
   if (name==='ayarlar') checkSettingsAccess();
@@ -3587,11 +3696,16 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick = () => showTab(t.dataset
 
 function checkSettingsAccess() {
   const sess = getSession();
-  const hasAccess = sess && sess.isAdmin;
+  const full = !!(sess && sess.isAdmin), hasAccess = full || hasSettingsPerm();
+  applyPerms();
   $('settingsLock').classList.toggle('hide', hasAccess);
   $('settingsContent').classList.toggle('hide', !hasAccess);
   if (!hasAccess) $('lockPass').value = '';
-  else renderBackupPage();
+  else {
+    const on = document.querySelector('.subtab.on'), vis = el => el && el.offsetParent !== null;
+    if (!vis(on)) { const f = [...document.querySelectorAll('.subtab')].find(vis); if (f) showSubtab(f.dataset.subtab); }
+    if (full) renderBackupPage();
+  }
 }
 
 $('lockBtn').onclick = async () => {
@@ -3871,7 +3985,7 @@ function copySel() {
   rowClip = rowsToTsv(ids); return rowClip;
 }
 async function deleteRows(ids, ask) {
-  if (!ids.length) return;
+  if (!ids.length || denied('takipYaz')) return;
   if (ask && !(await askYes(ids.length + ' satır silinsin mi?'))) return;
   const set = new Set(ids);
   S.entries = S.entries.filter(e => !set.has(e.id));
@@ -3880,6 +3994,7 @@ async function deleteRows(ids, ask) {
   save(); renderAll(); initAlarmed();
 }
 function pasteRows(txt) {
+  if (denied('takipYaz')) return 0;
   const lines = txt.replace(/\r/g, '').replace(/\n+$/, '').split('\n').filter(l => l.trim() !== '');
   if (!lines.length) return 0;
   const ids = selIdsOrdered(); let pos;
@@ -3952,21 +4067,21 @@ $('selClear').onclick = () => { selIds.clear(); applySel(); };
 /* -- 4) Üretim Takip kolonlarını seçme / gizleme -- */
 const COLDEFS = [['target', 'Hedef / Tamam', 0], ['machine', 'Makine', 2], ['code', 'Ürün kodu', 3], ['qty', 'Adet', 4], ['date', 'Tarih', 5], ['day', 'Gün', 6],
   ['shift', 'Vardiya Saati', 7], ['team', 'Vardiya', 8], ['op', 'Operatör(ler)', 9], ['ver', 'Verim', 10], ['note', 'Açıklama', 11], ['use', 'Stoktan eksilen', 12]];
-const hiddenCols = () => new Set(S && S.settings && Array.isArray(S.settings.hiddenCols) ? S.settings.hiddenCols : []);
+const hiddenCols = () => new Set(S && S.settings && Array.isArray(S.settings.hiddenCols) ? S.settings.hiddenCols.filter(k => k !== 'ver') : []);   // Verim sütununun görünürlüğü yalnızca yetkiyle belirlenir
 function applyColVisibility() {
   const hid = hiddenCols();
   let st = $('colStyle'); if (!st) { st = document.createElement('style'); st.id = 'colStyle'; document.head.appendChild(st); }
-  st.textContent = COLDEFS.filter(c => hid.has(c[0])).map(c => `table.xl th:nth-child(${c[2] + 1}),table.xl td:nth-child(${c[2] + 1}),table.xl col:nth-child(${c[2] + 1}){display:none}`).join('\n');
+  st.textContent = COLDEFS.filter(c => c[0] !== 'ver' && hid.has(c[0])).map(c => `table.xl th:nth-child(${c[2] + 1}),table.xl td:nth-child(${c[2] + 1}),table.xl col:nth-child(${c[2] + 1}){display:none}`).join('\n');
 }
 function renderColChecks() {
   const box = $('colChecks'); if (!box) return;
   const hid = hiddenCols();
-  box.innerHTML = COLDEFS.map(c => `<label class="chk"><input type="checkbox" data-col="${c[0]}" ${hid.has(c[0]) ? '' : 'checked'}> ${esc(c[1])}</label>`).join('');
+  box.innerHTML = COLDEFS.filter(c => c[0] !== 'ver').map(c => `<label class="chk"><input type="checkbox" data-col="${c[0]}" ${hid.has(c[0]) ? '' : 'checked'}> ${esc(c[1])}</label>`).join('');
 }
 $('colChecks').addEventListener('change', e => {
   const cb = e.target.closest('input[data-col]'); if (!cb) return;
   const hid = hiddenCols(); cb.checked ? hid.delete(cb.dataset.col) : hid.add(cb.dataset.col);
-  S.settings.hiddenCols = COLDEFS.map(c => c[0]).filter(k => hid.has(k));
+  S.settings.hiddenCols = COLDEFS.map(c => c[0]).filter(k => k !== 'ver' && hid.has(k));
   logAction('ayar_değiştir', 'gizli kolonlar: ' + (S.settings.hiddenCols.join(', ') || 'yok'));
   save(); applyYieldVisibility(); refreshSeps();
 });
@@ -5222,6 +5337,7 @@ function onUsersChanged() {
   if (!me) { clearSession(); notify('Kullanıcı hesabınız silindi. Çıkış yapılıyor.').then(() => location.reload()); return; }
   currentUser = me;
   $('curUser').textContent = me.username + (me.role === 'admin' ? ' ⚡' : '');
+  applyPerms(); if (!can('takip') && !$('tab-takip').classList.contains('hide')) showTab('ayarlar');
   if (getSession() && getSession().isAdmin) renderUsers();
 }
 function refreshDerived() {
