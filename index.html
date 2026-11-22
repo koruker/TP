@@ -2985,8 +2985,8 @@ function renderGrid(full) {
 
   /* Çok satırlı aylarda ilk satırlar hemen çizilir, kalanı kareler halinde eklenir (ay geçişinde donmayı önler) */
   gridToken++;
-  const FIRST = 60;
-  if (display.length > FIRST + 40) {
+  const FIRST = 60, keepY = window.scrollY;   // aşağıdayken (ör. satır silme) tüm satırlar bir seferde çizilir ve kaydırma konumu korunur
+  if (display.length > FIRST + 40 && keepY < 50) {
     body.innerHTML = display.slice(0, FIRST).map((e, i) => rowHtml(e, i, info)).join('');
     gridPending = {token: gridToken, display, next: FIRST};
     requestAnimationFrame(gridChunkStep);
@@ -3002,6 +3002,7 @@ function renderGrid(full) {
   updateOpListGlobal();
   applyColWidths();
   if (full) flushGridChunks();
+  if (keepY >= 50 && Math.abs(window.scrollY - keepY) > 1) window.scrollTo(0, keepY);
 }
 
 function appendSpareDom() {
@@ -3319,8 +3320,10 @@ body.addEventListener('click', async e=>{
   if (!isBlank(S.entries[i]) && !(await askYes('Satır silinsin mi?'))) return;
   const e2 = S.entries[i];
   if (!isBlank(e2)) logAction('üretim_sil', (e2.machine?e2.machine+' · ':'') + (e2.code||'-') + ' — ' + fmt(e2.qty||0) + ' adet');
+  const keepY = window.scrollY;
   S.entries.splice(i, 1);
   save(); renderAll(); initAlarmed();
+  window.scrollTo(0, keepY); requestAnimationFrame(() => { if (Math.abs(window.scrollY - keepY) > 2) window.scrollTo(0, keepY); });
 });
 
 function initAlarmed() {
@@ -3989,11 +3992,12 @@ function copySel() {
 async function deleteRows(ids, ask) {
   if (!ids.length || denied('takipYaz')) return;
   if (ask && !(await askYes(ids.length + ' satır silinsin mi?'))) return;
-  const set = new Set(ids);
+  const set = new Set(ids), keepY = window.scrollY;
   S.entries = S.entries.filter(e => !set.has(e.id));
   selIds.clear(); ensureSpare(25);
   logAction('üretim_sil', ids.length + ' satır toplu silindi');
   save(); renderAll(); initAlarmed();
+  window.scrollTo(0, keepY); requestAnimationFrame(() => { if (Math.abs(window.scrollY - keepY) > 2) window.scrollTo(0, keepY); });
 }
 function pasteRows(txt) {
   if (denied('takipYaz')) return 0;
